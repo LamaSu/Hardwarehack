@@ -100,6 +100,9 @@ def test_cors_only_for_local_ui(client):
 def test_foreign_host_rejected(client):
     """DNS rebinding: a page on evil.com resolving to 127.0.0.1 sends Host: evil.com."""
     assert client.get("/formats", headers={"Host": "evil.com"}).status_code == 400
+    # Same attack through the Next.js proxy, which rewrites Host but forwards the original.
+    assert client.get("/formats", headers={"X-Forwarded-Host": "evil.com:3000"}).status_code == 400
+    assert client.get("/formats", headers={"X-Forwarded-Host": "127.0.0.1:3000"}).status_code == 200
 
 
 def test_cross_site_post_rejected(client):

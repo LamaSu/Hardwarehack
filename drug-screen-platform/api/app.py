@@ -32,7 +32,10 @@ def create_app() -> FastAPI:
         # This API moves a robot, so other websites must not reach it through the
         # user's browser: a foreign Host means DNS rebinding, a foreign Origin or a
         # cross-site fetch means CSRF.
-        if request.url.hostname not in LOCAL_HOSTS:
+        # Requests proxied by the Next.js app carry the browser's Host in X-Forwarded-Host.
+        forwarded = request.headers.get("x-forwarded-host", "").split(",")[0].strip()
+        forwarded_host = forwarded.rsplit(":", 1)[0] if forwarded else None
+        if request.url.hostname not in LOCAL_HOSTS or (forwarded_host and forwarded_host not in LOCAL_HOSTS):
             return JSONResponse({"detail": "Host not allowed"}, status_code=400)
         origin = request.headers.get("origin")
         if (origin and origin not in LOCAL_ORIGINS) or request.headers.get("sec-fetch-site") in ("cross-site", "same-site"):
