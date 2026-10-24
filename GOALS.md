@@ -1,6 +1,6 @@
 # Hardwarehack: goals and plan
 
-**Physical AI for Science Hack @ Studio 45, Track B (Opentrons).** Draft for team review, written Saturday 2026-10-24 about 16:00 PDT. Questions and answers live in [issue #1](https://github.com/LamaSu/Hardwarehack/issues/1). This repo is public: no keys, IP addresses, robot serial numbers or proprietary compound data in it.
+**Physical AI for Science Hack @ Studio 45, Track B (Opentrons).** Draft for team review, written Saturday 2026-10-24 about 16:00 PDT and updated about 16:05 PDT after the planner landed on `main`. Questions and answers live in [issue #1](https://github.com/LamaSu/Hardwarehack/issues/1). This repo is public: no keys, IP addresses, robot serial numbers or proprietary compound data in it.
 
 ## Vision
 
@@ -28,7 +28,7 @@ Track B brief on the event page: "Build and test new liquid-handling workflows o
 | CSV parameter | `parameters.add_csv_file(...)` from API 2.20. One CSV per run, picked at run setup in the Opentrons App or from a USB drive on the touchscreen. | [parameters](https://docs.opentrons.com/v2/parameters/defining.html) |
 | Gripper | `move_labware(..., use_gripper=True)` since API 2.15. | versioning page |
 | Robot login | 10.x adds user accounts, login tokens, roles and audit logs. We have not tested whether it is switched on for our robot. | release notes v10.0.0 and v10.1.0 |
-| Planner | Drug Screen Designer on branch `steffi/plate-designer`: plate layouts, dose series, C1·V1=C2·V2, automatic intermediate dilutions, an ordered transfer list (CSV) and an independent plan checker. Python 3.11, uv, CustomTkinter. | this repo |
+| Planner | Drug Screen Designer, now on `main` in `drug-screen-platform/` (merged 15:46 PDT): plate layouts, dose series, C1·V1=C2·V2, automatic intermediate dilutions, an ordered transfer list (CSV) and an independent plan checker. Python 3.11, uv, CustomTkinter. | this repo |
 
 ## Scope
 
@@ -66,7 +66,7 @@ Nobody is assigned yet. Claim one by commenting on issue #1 or by editing this t
 ### G1. Planner ready for the 8-channel
 Goal: plans the 8-channel 1000 µL pipette can actually execute.
 
-- Merge `steffi/plate-designer` into `main` through a PR.
+- Done: the planner is on `main` (merged 15:46 PDT).
 - Make the default minimum transfer 5 µL instead of 1 µL (code, GUI, README, `verify_plan.py`). The 1 µL figure belongs to the 50 µL pipettes.
 - Fix the intermediate plate capacity. We ran the planner's modules on a synthetic layout (96-well assay plate, 100 µL wells, 10 mM DMSO stocks, 3-fold series from 10 µM, vehicle and untreated controls):
 
@@ -161,7 +161,7 @@ Done when: CI is green on `main` and the dye gradient from the demo run is monot
 Done when: someone who did not build it can run the demo from the README in 10 minutes.
 
 ### G9. Repo and team hygiene
-- Branches and PRs into `main`, small and quick to review. Conventional commit messages.
+- Follow the branching rules in `CLAUDE.md`: nobody pushes to `main` directly, each person works on their own branch (`ebrinz`, `steffi/<topic>`, `lamasu/<topic>`), and merges into `main` only when up to date and `uv run pytest` is green. PRs are optional, for when you want a second pair of eyes. Conventional commit messages.
 - Add a root `.gitignore` (`.env*`, local config, `data/`). Nothing secret, no IPs, no serial numbers, no proprietary data.
 - Resolve the unknowns with a host: demo length, judging criteria, which Sunday agenda is current.
 
@@ -179,7 +179,7 @@ Done when: someone who did not build it can run the demo from the README in 10 m
 
 | When | Target |
 |---|---|
-| Sat now to 6 PM | Merge the planner PR, fix the 5 µL default, decide the G2 design, robot hello world (connect, labware position check, tip pickup, gripper moves a plate), choose the barcode and LIMS routes |
+| Sat now to 6 PM | The planner is on `main`; fix the 5 µL default, decide the G2 design, robot hello world (connect, labware position check, tip pickup, gripper moves a plate), choose the barcode and LIMS routes |
 | Sat 6 to 7 PM | Dinner. 10-minute sync: what is merged, what is blocked |
 | Sat 7 PM to midnight | First real dye run, scan and log in the loop. At least one end-to-end pass before the robots sleep |
 | Sun 8 to 11 AM | Full run, record the backup video, fix what broke |
@@ -222,12 +222,13 @@ About 9 hours of robot time remain on Saturday evening and 6.5 on Sunday morning
 | Q13 | Stack | Answered by the planner: Python 3.11, uv, CustomTkinter. |
 | Q14 | Demo machine | Unanswered. |
 | Q15 | Owners | Unanswered: claim a workstream above. |
-| Q16 | Repo rules | Default: branches and PRs, MIT license, no secrets. `ebrinz` replied "looks good to me" on the issue, read here as agreeing with the defaults. Please confirm. |
+| Q16 | Repo rules | Answered by `ebrinz`'s branching rules in `CLAUDE.md` (15:46 PDT). Still open: an MIT license at the repo root, a root `.gitignore`, nothing secret in the repo. `ebrinz` also replied "looks good to me" on the issue, read here as agreeing with the defaults. |
 
 ## Working agreement
 
 - Done means watched-it-work: say what you ran and what you saw. "Written, not tested" is a fine status.
 - Keep everything the robot needs in `src/`, and keep `main.py` for the GUI.
+- The branching rules are in `CLAUDE.md`. Pull `main` into your branch often.
 - Planning and review support comes from Claude Code in LamaSu's session. Code changes come from the team.
 
 Drafted with Claude Code at LamaSu's request. Edit freely.
