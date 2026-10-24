@@ -69,9 +69,44 @@ def test_large_volume_is_split_for_the_1000_ul_pipette():
     layout = PlateLayout("6-well", "Big wells")
     layout.assign(["A1"], WellAssignment(drug="Erastin", concentration=1, unit="µM"))
     layout.stocks["Erastin"] = StockSolution(10, "mM", "DMSO")
-    settings = PipettingSettings(intermediate_transfer_ul=1500, max_intermediate_volume_ul=2000)
+    settings = PipettingSettings(min_transfer_ul=5, intermediate_transfer_ul=1500, max_intermediate_volume_ul=2000)
     plan = plan_dilutions(layout, 2000, settings)
     _simulate(generate_protocol(layout, plan))
+
+
+def test_protocol_matches_studio45_hardware():
+    layout = example_layout()
+    text = generate_protocol(layout, plan_layout(layout).plan)
+    assert "flex_8channel_1000" in text and "flex_1channel" not in text
+    assert "configure_nozzle_layout" in text
+    log = _simulate(text)
+    assert log
+
+
+def test_transfers_below_pipette_minimum_refused():
+    layout = example_layout()
+    plan = plan_dilutions(layout, 100, PipettingSettings(min_transfer_ul=1))
+    assert min(t.volume_ul for t in plan.transfers) < 5
+    with pytest.raises(ProtocolError, match="5 µL"):
+        generate_protocol(layout, plan)
+
+
+def test_full_intermediate_plate_refused():
+    layout = PlateLayout("96-well", "Too many series")
+    for row in range(6):
+        drug = f"Drug{row}"
+        layout.apply_dose_series([f"{'ABCDEFGH'[row]}{c}" for c in range(1, 13)], drug, 20, "µM", 2)
+        layout.stocks[drug] = StockSolution(10, "mM", "DMSO")
+    with pytest.raises(ProtocolError, match="Intermediate plate is full"):
+        generate_protocol(layout, plan_layout(layout).plan)
+
+
+def test_deck_keeps_row_a_clear_for_single_nozzle():
+    layout = example_layout()
+    text = generate_protocol(layout, plan_layout(layout).plan)
+    assert "TIPS_50_SLOTS = ['D1'" in text
+    for slot in ("'A1'", "'A2'"):
+        assert f"load_labware" in text and f", {slot})" not in text
 
 
 def test_1536_refused():
@@ -87,7 +122,8 @@ def test_too_many_stocks_refused():
         drug = f"Drug{index}"
         layout.assign([f"{'ABCDEFGH'[index // 12]}{index % 12 + 1}"],
                       WellAssignment(drug=drug, concentration=1, unit="µM"))
-        layout.stocks[drug] = StockSolution(10, "mM", "Water")
+        # 20 µM stock -> 1 µM final is a direct 5 µL transfer, so only the tube count can fail.
+        layout.stocks[drug] = StockSolution(20, "µM", "Water")
     with pytest.raises(ProtocolError, match="24"):
         generate_protocol(layout, plan_layout(layout).plan)
 
@@ -102,7 +138,8 @@ def test_names_cannot_inject_code():
     layout.stocks[drug] = StockSolution(10, "mM", "DMSO")
     text = generate_protocol(layout, plan_layout(layout).plan)
     tree = ast.parse(text)
-    assert not [n for n in ast.walk(tree) if isinstance(n, (ast.Import, ast.ImportFrom))]
+    imports = [ast.unparse(n) for n in ast.walk(tree) if isinstance(n, (ast.Import, ast.ImportFrom))]
+    assert imports == ["from opentrons.protocol_api import SINGLE"]
     assert not [n for n in ast.walk(tree) if isinstance(n, ast.Call)
                 and getattr(n.func, "attr", "") == "system"]
     _simulate(text)

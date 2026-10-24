@@ -18,7 +18,7 @@ def test_well_volume_reads_saved_value():
 def test_plan_layout_example_passes():
     result = plan_layout(example_layout())
     assert result.report.passed
-    assert len(result.plan.transfers) == 120
+    assert len(result.plan.transfers) == 128
     assert result.volume_ul == 100
 
 
@@ -27,3 +27,15 @@ def test_saved_well_volume_survives_round_trip(tmp_path):
     layout.pipetting["well_volume_ul"] = 150
     layout.save_json(tmp_path / "plate.json")
     assert well_volume(PlateLayout.load_json(tmp_path / "plate.json")) == 150
+
+
+def test_min_transfer_defaults_to_pipette_minimum():
+    result = plan_layout(example_layout())
+    assert result.settings.min_transfer_ul == 5
+    assert min(t.volume_ul for t in result.plan.transfers) >= 5
+
+
+def test_saved_min_transfer_is_kept():
+    layout = example_layout()
+    layout.pipetting["min_transfer_ul"] = 10
+    assert plan_layout(layout).settings.min_transfer_ul == 10

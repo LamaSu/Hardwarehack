@@ -35,7 +35,7 @@ def test_layout_save_list_load(client):
 def test_plan_example_passes(client):
     body = client.post("/plan", json={"layout": _layout()}).json()
     assert body["check"]["passed"] is True
-    assert len(body["plan"]["transfers"]) == 120
+    assert len(body["plan"]["transfers"]) == 128
     assert body["volume_ul"] == 100
     assert any("Erastin" in line for line in body["materials"])
 

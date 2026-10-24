@@ -18,7 +18,7 @@ interface Props {
 
 const PIPETTING = [
   { key: "well_volume_ul", label: "Final volume / well", fallback: (f: PlateFormat) => f.default_working_volume_ul },
-  { key: "min_transfer_ul", label: "Min. transfer", fallback: () => 1 },
+  { key: "min_transfer_ul", label: "Min. transfer", fallback: () => 5 }, // Studio45 pipette minimum
   { key: "intermediate_transfer_ul", label: "Intermediate transfer", fallback: () => 10 },
   { key: "dead_volume_ul", label: "Dead volume", fallback: () => 20 },
 ] as const;

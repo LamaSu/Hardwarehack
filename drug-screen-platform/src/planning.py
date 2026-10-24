@@ -13,6 +13,9 @@ from plate_layout import (
 )
 
 WELL_VOLUME_KEY = "well_volume_ul"
+MIN_TRANSFER_KEY = "min_transfer_ul"
+# Studio45's Flex 8-channel 1000 µL pipette can't go below 5 µL; see protocol_generator.
+DEFAULT_MIN_TRANSFER_UL = 5.0
 
 
 @dataclass
@@ -53,7 +56,7 @@ def plan_layout(layout: PlateLayout, volume_ul: Optional[float] = None) -> PlanR
         If the pipetting settings are invalid.
     """
     volume = volume_ul if volume_ul is not None else well_volume(layout)
-    settings = PipettingSettings.from_dict(layout.pipetting)
+    settings = PipettingSettings.from_dict({MIN_TRANSFER_KEY: DEFAULT_MIN_TRANSFER_UL, **layout.pipetting})
     problems = settings.validate(volume)
     if problems:
         raise ValueError("; ".join(problems))

@@ -282,12 +282,14 @@ flex demo plate.json                                   # check → protocol → 
 
 ## Calls made during the builder check (override if you disagree)
 
-- **Robot hardware is constants, not input.** Deck, pipettes and labware are
-  constants at the top of the generated `protocol.py` (left: Flex 1-channel
-  50 µL, right: Flex 1-channel 1000 µL, trash bin in A3, stocks in a 24-tube
-  1.5 mL snapcap rack in C1, medium in a 1-well 195 mL reservoir in D2).
-  Edit them there if the hackathon robot differs. **Confirm the real
-  hardware on robot day.**
+- **Robot hardware is constants, not input.** Checked against Studio45 on
+  robot day: one Flex 8-channel 1000 µL pipette (left, 5 µL minimum), a
+  gripper, trash bin in A3, no modules. The protocol uses the pipette through
+  its front nozzle (`SINGLE`, `start="H1"`) with 50 µL tips up to 50 µL and
+  1000 µL tips above. The simulator's collision checks fixed the deck: stocks
+  B1, assay B2, intermediate B3, medium C2, tips D1-D3, rest of rows A and C
+  empty (spare nozzles hang toward the back). Plans default to a 5 µL minimum
+  transfer and the generator refuses anything smaller.
 - **Tube map is derived.** Stock and solvent tubes are filled A1, B1, C1,
   D1, A2, … in order of first use in the transfer list. The map is printed
   as a comment block at the top of `protocol.py`, returned by the API and

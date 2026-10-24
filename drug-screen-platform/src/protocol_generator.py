@@ -15,8 +15,12 @@ from plate_layout import PlateLayout
 
 API_LEVEL = "2.30"
 
-SMALL_PIPETTE = ("flex_1channel_50", "left", 50.0)
-LARGE_PIPETTE = ("flex_1channel_1000", "right", 1000.0)
+# Studio45: one Flex 8-channel 1000 µL pipette (left), used through a single nozzle
+# so it can dose individual wells. Its minimum volume is 5 µL. Right mount is empty.
+PIPETTE = ("flex_8channel_1000", "left")
+PIPETTE_MIN_UL = 5.0
+SMALL_TIP_MAX_UL = 50.0
+LARGE_TIP_MAX_UL = 1000.0
 TIPS_50 = "opentrons_flex_96_tiprack_50ul"
 TIPS_1000 = "opentrons_flex_96_tiprack_1000ul"
 STOCK_RACK = "opentrons_24_tuberack_nest_1.5ml_snapcap"
@@ -24,14 +28,18 @@ STOCK_TUBE_CAPACITY_UL = 1500.0
 MEDIUM_RESERVOIR = "nest_1_reservoir_195ml"
 MEDIUM_CAPACITY_UL = 195000.0
 
+# Deck for single-nozzle (H1) work, found by simulation: the 7 spare nozzles hang
+# toward the back, so the slot behind anything we touch must be empty or low, and
+# row A can't be reached at all. Row A stays empty apart from the trash; C1/C3 stay
+# empty because a tip rack there blocks D1/D3.
 DECK = {
     "trash": "A3",
-    ASSAY: "C2",
-    INTERMEDIATE: "B2",
-    STOCK: "C1",
-    MEDIUM: "D2",
+    STOCK: "B1",
+    ASSAY: "B2",
+    INTERMEDIATE: "B3",
+    MEDIUM: "C2",
 }
-TIP_SLOTS = ["A2", "A1", "B1", "B3", "C3", "D1", "D3"]
+TIP_SLOTS = ["D1", "D2", "D3"]
 TUBE_POSITIONS = [f"{row}{col}" for col in range(1, 7) for row in "ABCD"]
 DEAD_VOLUME_UL = {STOCK: 20.0, MEDIUM: 1000.0}
 
@@ -75,10 +83,28 @@ def tube_map(plan: DilutionPlan) -> dict[str, str]:
 
 
 def _pipette_parts(volume_ul: float) -> tuple[str, int]:
-    """Which pipette moves ``volume_ul`` and in how many equal parts."""
-    if volume_ul <= SMALL_PIPETTE[2]:
+    """Which tip size moves ``volume_ul`` and in how many equal parts."""
+    if volume_ul <= SMALL_TIP_MAX_UL:
         return "small", 1
-    return "large", math.ceil(volume_ul / LARGE_PIPETTE[2])
+    return "large", math.ceil(volume_ul / LARGE_TIP_MAX_UL)
+
+
+def _check_plan_fits(plan: DilutionPlan) -> None:
+    """Refuse plans the planner couldn't place, e.g. when the intermediate plate is full."""
+    if any("—" in (t.source_well, t.dest_well) for t in plan.transfers):
+        reasons = sorted(set(plan.warnings)) or ["some wells have no source"]
+        raise ProtocolError(f"The plan doesn't fit on the deck: {'; '.join(reasons)}.")
+
+
+def _check_minimum(plan: DilutionPlan) -> None:
+    """Refuse transfers the pipette can't do accurately."""
+    too_small = [t for t in plan.transfers if t.volume_ul < PIPETTE_MIN_UL - 1e-9]
+    if too_small:
+        raise ProtocolError(
+            f"{len(too_small)} transfer(s) are below the {PIPETTE_MIN_UL:g} µL minimum of the Flex "
+            f"8-channel 1000 µL pipette (smallest: {min(t.volume_ul for t in too_small):.3g} µL). "
+            f"Set Min. transfer to {PIPETTE_MIN_UL:g} µL or more and update the plan."
+        )
 
 
 def _tip_racks(plan: DilutionPlan) -> tuple[list[str], list[str]]:
@@ -142,6 +168,8 @@ def generate_protocol(layout: PlateLayout, plan: DilutionPlan) -> str:
     fmt = layout.plate_format
     if fmt.opentrons_load_name is None:
         raise ProtocolError(f"{fmt.name}: no Opentrons labware definition, can't run on the Flex.")
+    _check_plan_fits(plan)
+    _check_minimum(plan)
     tubes = tube_map(plan)
     small_slots, large_slots = _tip_racks(plan)
     volumes = _liquid_volumes(plan, tubes)
@@ -174,7 +202,10 @@ only adds the planned transfers.
 #   Stock tubes ({STOCK_RACK} in {DECK[STOCK]}):
 {tube_lines}
 {medium_line}
-#   Tip racks: 50 µL in {small_slots or "-"}, 1000 µL in {large_slots or "-"}
+#   Tip racks: 50 µL in {small_slots or "-"}, 1000 µL in {large_slots or "-"} (full racks, no adapter)
+#   Pipette: Flex 8-channel 1000 µL on the left mount, used through its front nozzle (H1)
+
+from opentrons.protocol_api import SINGLE
 
 requirements = {{"robotType": "Flex", "apiLevel": "{API_LEVEL}"}}
 metadata = {{
@@ -189,8 +220,7 @@ INTERMEDIATE_PLATE = ({INTERMEDIATE_LABWARE!r}, {DECK[INTERMEDIATE]!r})
 STOCK_RACK = ({STOCK_RACK!r}, {DECK[STOCK]!r})
 MEDIUM_RESERVOIR = ({MEDIUM_RESERVOIR!r}, {DECK[MEDIUM]!r})
 TRASH_SLOT = {DECK["trash"]!r}
-SMALL_PIPETTE = ({SMALL_PIPETTE[0]!r}, {SMALL_PIPETTE[1]!r})
-LARGE_PIPETTE = ({LARGE_PIPETTE[0]!r}, {LARGE_PIPETTE[1]!r})
+PIPETTE = ({PIPETTE[0]!r}, {PIPETTE[1]!r})
 TIPS_50_SLOTS = {small_slots!r}
 TIPS_1000_SLOTS = {large_slots!r}
 
@@ -213,8 +243,14 @@ def run(protocol):
     }}
     tips_50 = [protocol.load_labware({TIPS_50!r}, slot) for slot in TIPS_50_SLOTS]
     tips_1000 = [protocol.load_labware({TIPS_1000!r}, slot) for slot in TIPS_1000_SLOTS]
-    small = protocol.load_instrument(*SMALL_PIPETTE, tip_racks=tips_50)
-    large = protocol.load_instrument(*LARGE_PIPETTE, tip_racks=tips_1000)
+    pipette = protocol.load_instrument(*PIPETTE)
+    # One nozzle of the 8-channel, so each transfer touches a single well. Tips are
+    # taken row by row so spare tips can't cling to the empty nozzles.
+    pipette.configure_nozzle_layout(style=SINGLE, start="H1")
+    tips = {{
+        "small": [well for rack in tips_50 for well in sum(rack.rows(), [])],
+        "large": [well for rack in tips_1000 for well in sum(rack.rows(), [])],
+    }}
 
     for liquid, tube in STOCK_TUBES.items():
         defined = protocol.define_liquid(name=liquid)
@@ -230,15 +266,13 @@ def run(protocol):
             source_well = "A1"
         source = labware[source_labware][source_well]
         destination = labware[dest_labware][dest_well]
-        if volume <= {SMALL_PIPETTE[2]:g}:
-            pipette, parts = small, 1
+        if volume <= {SMALL_TIP_MAX_UL:g}:
+            tip_size, parts = "small", 1
         else:
-            pipette, parts = large, -(-volume // {LARGE_PIPETTE[2]:g})
+            tip_size, parts = "large", -(-volume // {LARGE_TIP_MAX_UL:g})
         part = volume / parts
         for _ in range(int(parts)):
-            if pipette is small:
-                small.configure_for_volume(part)
-            pipette.pick_up_tip()
+            pipette.pick_up_tip(tips[tip_size].pop(0))
             pipette.aspirate(part, source)
             pipette.dispense(part, destination)
             pipette.drop_tip()
