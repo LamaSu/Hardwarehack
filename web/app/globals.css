@@ -1,26 +1,33 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-bg: #1b1d21;
+  --color-panel: #24272c;
+  --color-field: #2e3238;
+  --color-line: #3a3f47;
+  --color-text: #e6e8eb;
+  --color-muted: #959ba5;
+  --color-accent: #5bb4f0;
+  --color-ok: #6fd36f;
+  --color-warn: #f0b45b;
+  --color-bad: #f07a6f;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+html, body { background: var(--color-bg); color: var(--color-text); }
+body { font-family: var(--font-mono); font-size: 13px; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+.btn { @apply rounded px-3 py-1.5 bg-field text-text hover:bg-line disabled:opacity-40 disabled:cursor-not-allowed; }
+.btn-primary { @apply bg-accent text-[#0d1b26] font-semibold hover:brightness-110; }
+.field { @apply rounded bg-field px-2 py-1 text-text outline-none focus:ring-1 focus:ring-accent; }
+.panel { @apply rounded-md bg-panel p-4; }
+.panel-title { @apply mb-3 flex items-baseline justify-between text-text; }
+.panel-title small { @apply text-muted; }
+.seg { @apply flex rounded bg-field p-0.5; }
+.seg button { @apply rounded px-2.5 py-1 text-text; }
+.seg button[aria-pressed="true"] { @apply bg-accent text-[#0d1b26]; }
+table.grid-table { @apply w-full border-collapse; }
+.grid-table th { @apply sticky top-0 bg-panel px-2 py-1 text-left font-normal text-muted; }
+.grid-table td { @apply whitespace-nowrap px-2 py-0.5; }
+.grid-table tr.muted td { @apply text-muted; }
+.grid-table tr.warn td { @apply text-warn; }
