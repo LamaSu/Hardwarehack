@@ -39,3 +39,15 @@ with `uv run python main.py`.
 - Keep GUI and logic separate: anything a robot protocol needs lives in `src/`, not `main.py`
 - Commit messages: conventional commits, short (e.g. `feat: add intermediate plate view`)
 - Work on a branch; the user pushes from the Windows host
+
+## Branching (3 contributors)
+
+- Nobody pushes to `main` directly. Each of the three contributors works on and
+  pushes to their own branch (e.g. `ebrinz`, `steffi/<topic>`), never to someone
+  else's branch.
+- Pull `main` into your branch often (`git fetch origin && git merge origin/main`)
+  so conflicts stay small and get resolved on your branch, not on `main`.
+- Merge your branch into `main` only when it is up to date with `origin/main`
+  and `uv run pytest` is green. Merge locally, check the result, then push
+  `main`. Prefer a fast-forward; if not possible, a plain merge commit is fine.
+- Never force-push `main` or another contributor's branch.
