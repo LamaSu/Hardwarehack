@@ -672,9 +672,24 @@ class ScreenDesignerApp:
             return
         role = self.role_var.get() if self.role_var.get() == ROLE_POSITIVE else ROLE_TREATMENT
         direction = "row" if self.series_direction_var.get().startswith("Along") else "column"
+        groups: dict[int, int] = {}
+        for well in wells:
+            row, col = parse_well(well)
+            key = row if direction == "row" else col
+            groups[key] = groups.get(key, 0) + 1
+        steps = max(groups.values())
+        if steps < 2:
+            along = "in a row" if direction == "row" else "in a column"
+            self.flash(f"Select at least 2 wells {along} — each {direction} becomes one series", WARNING,
+                       duration_ms=6000)
+            return
         self.layout.apply_dose_series(wells, drug, top, self.series_unit_var.get(), factor, direction, role)
         self._after_layout_change(refresh_all=True)
-        self.flash(f"Applied 1:{format_number(factor)} series to {len(wells)} well(s)", SUCCESS)
+        unit = self.series_unit_var.get()
+        top_nm = to_nanomolar(top, unit)
+        self.flash(
+            f"Applied {len(groups)} series × {steps} steps: {format_concentration_nm(top_nm)} → "
+            f"{format_concentration_nm(top_nm / factor ** (steps - 1))}", SUCCESS, duration_ms=6000)
 
     def _after_layout_change(self, refresh_all: bool = False) -> None:
         # Concentration shading is relative per drug, so one edit can recolor other wells.
