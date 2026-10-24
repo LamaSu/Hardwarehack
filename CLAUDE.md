@@ -10,6 +10,8 @@ an end-to-end drug screening platform driving an Opentrons Flex.
   - `src/plate_formats.py` — plate geometry, well names, Opentrons labware load names
   - `src/plate_layout.py` — layout model (wells → drug, concentration, role), JSON/CSV
   - `src/dilution_planner.py` — intermediate dilutions and the ordered transfer list
+  - `src/plan_checker.py` — replays the transfer list and checks every well (independent of the planner)
+  - `scripts/verify_plan.py` — command-line check of a saved layout
   - `src/plate_canvas.py` — interactive plate widget
   - `tests/` — pytest
 - `docker/`, `docker-compose.yml`, `scripts/start_claude.sh` — Claude Code container
@@ -20,7 +22,11 @@ an end-to-end drug screening platform driving an Opentrons Flex.
 cd drug-screen-platform
 uv sync
 uv run pytest
+uv run python scripts/verify_plan.py              # example plate
+uv run python scripts/verify_plan.py plate.json   # layout saved from the app
 ```
+
+Any change to the planner must keep `tests/test_plan_checker.py` green (300 random layouts).
 
 The GUI can't open inside the container (no display); run it on the Windows host
 with `uv run python main.py`.

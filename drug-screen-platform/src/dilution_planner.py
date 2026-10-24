@@ -177,7 +177,7 @@ class _Liquid:
 
 def _plan_liquid(
     liquid: _Liquid, well_volume_ul: float, settings: PipettingSettings,
-) -> tuple[dict[float, Optional[float]], list[IntermediateWell]]:
+) -> tuple[dict[float, tuple[float, float]], list[IntermediateWell]]:
     """
     Decide for one liquid which targets are dosed from stock and which need
     intermediates, and size the intermediate wells.
@@ -185,57 +185,74 @@ def _plan_liquid(
     Returns
     -------
     tuple
-        ``(source_concentration_by_target, intermediates)``; the source
-        concentration is the stock concentration for direct transfers.
+        ``(source_by_target, intermediates)``. ``source_by_target`` maps each
+        target concentration to ``(source_concentration, transfer_ul)``; the
+        source concentration equals the stock concentration for direct transfers.
+
+    Notes
+    -----
+    Every dilution step is at least 2-fold, so the medium added to an
+    intermediate is never a tiny, unpipettable volume.
     """
     stock = liquid.stock_concentration
+    minimum = settings.min_transfer_ul
     transfer_volume = settings.intermediate_transfer_ul
-    source_by_target: dict[float, float] = {}
+    source_by_target: dict[float, tuple[float, float]] = {}
     demand: dict[float, float] = {}  # intermediate concentration -> volume drawn by assay wells
 
     for target, wells in liquid.targets.items():
         direct_volume = target * well_volume_ul / stock
-        if direct_volume >= settings.min_transfer_ul:
-            source_by_target[target] = stock
-        else:
-            intermediate = target * well_volume_ul / transfer_volume
-            source_by_target[target] = intermediate
-            demand[intermediate] = demand.get(intermediate, 0.0) + transfer_volume * len(wells)
+        if direct_volume >= minimum:
+            source_by_target[target] = (stock, direct_volume)
+            continue
+        intermediate = target * well_volume_ul / transfer_volume
+        volume = transfer_volume
+        if intermediate > stock / 2:
+            # Barely below the minimum: a 1:2 pre-dilution with a doubled transfer is enough.
+            intermediate, volume = stock / 2, 2 * direct_volume
+        source_by_target[target] = (intermediate, volume)
+        demand[intermediate] = demand.get(intermediate, 0.0) + volume * len(wells)
 
     # Choose a source for every intermediate, highest concentration first.
     # A lower-bound volume keeps the minimum-transfer check conservative.
+    def bound(concentration: float) -> float:
+        return max(demand[concentration] + settings.dead_volume_ul, 2 * minimum)
+
     source_of: dict[float, float] = {}
+    lower_bound = {c: bound(c) for c in demand}
     pending = sorted(demand, reverse=True)
-    lower_bound = {c: demand[c] + settings.dead_volume_ul for c in demand}
     while pending:
         concentration = pending.pop(0)
-        available = sorted([stock] + list(source_of))
-        candidates = [
-            s for s in available
-            if s > concentration and concentration * lower_bound[concentration] / s >= settings.min_transfer_ul
-        ]
+        sources = sorted(s for s in [stock] + list(source_of) if s >= 2 * concentration * (1 - 1e-9))
+        candidates = [s for s in sources if concentration * lower_bound[concentration] / s >= minimum]
         if candidates:
             source_of[concentration] = candidates[0]
             continue
-        # Every source is too concentrated: add a helper dilution in between,
-        # diluting as far as possible in one step (minimum transfer into a
-        # helper-sized well). Fall back to a smaller step if that overshoots.
-        lowest_source = min(s for s in available if s > concentration)
-        helper_volume = max(settings.helper_volume_ul, transfer_volume + settings.dead_volume_ul)
-        helper = lowest_source * settings.min_transfer_ul / helper_volume
-        if helper <= concentration:
-            helper = concentration * lower_bound[concentration] / transfer_volume
-            helper_volume = transfer_volume + settings.dead_volume_ul
-        lower_bound[helper] = helper_volume
+        lowest_source = sources[0]
+        helper_volume = max(settings.helper_volume_ul, transfer_volume + settings.dead_volume_ul, 4 * minimum)
+        # If a somewhat larger well makes the transfer pipettable, that beats an extra step.
+        required_volume = minimum * lowest_source / concentration
+        if required_volume <= helper_volume:
+            lower_bound[concentration] = max(lower_bound[concentration], required_volume)
+            source_of[concentration] = lowest_source
+            continue
+        # Otherwise add a helper dilution in between, diluting as far as possible
+        # in one step, but never closer than 2-fold to the target.
+        helper = lowest_source * minimum / helper_volume
+        if helper < 2 * concentration:
+            helper = 2 * concentration
+            helper_volume = max(minimum * lowest_source / helper, transfer_volume + settings.dead_volume_ul,
+                                2 * minimum)
         demand.setdefault(helper, 0.0)
+        lower_bound[helper] = helper_volume
         pending = sorted(set(pending) | {helper, concentration}, reverse=True)
 
-    # Size wells bottom-up: each well holds what its consumers draw plus dead volume.
+    # Size wells bottom-up: each well holds what its consumers draw plus dead volume,
+    # and never less than the volume the source choice was based on.
     total: dict[float, float] = {}
     drawn_from: dict[float, float] = {c: 0.0 for c in source_of}
     for concentration in sorted(source_of):
         needed = demand[concentration] + drawn_from[concentration] + settings.dead_volume_ul
-        # Never below the volume the source choice was based on, or the source transfer gets too small.
         total[concentration] = max(needed, lower_bound[concentration])
         source = source_of[concentration]
         if source in drawn_from:
@@ -373,13 +390,11 @@ def plan_dilutions(
         intermediates.extend(liquid_intermediates)
 
         for target, wells in liquid.targets.items():
-            source = source_by_target[target]
+            source, volume = source_by_target[target]
             if source == liquid.stock_concentration:
                 labware, source_well = STOCK, liquid.stock_name
-                volume = target * well_volume_ul / source
             else:
                 labware, source_well = source_lookup[(key, source)]
-                volume = settings.intermediate_transfer_ul
             for well in wells:
                 step = steps[well]
                 step.source_labware, step.source_well = labware, source_well

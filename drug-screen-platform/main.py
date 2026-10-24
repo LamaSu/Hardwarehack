@@ -21,6 +21,7 @@ from dilution_planner import (  # noqa: E402
     INTERMEDIATE_LABWARE, STOCK, DilutionPlan, PipettingSettings, export_transfers_csv, plan_dilutions,
 )
 from font_manager import FontManager  # noqa: E402
+from plan_checker import check_plan  # noqa: E402
 from formatters import format_number, validate_decimal_input  # noqa: E402
 from plate_canvas import PlateCanvas, WellStyle  # noqa: E402
 from plate_formats import (  # noqa: E402
@@ -854,7 +855,22 @@ class ScreenDesignerApp:
                  f"{format_number(medium, 'µl')} µL medium")
         line(f"{len(plan.transfers)} transfers in total. Add dead volume to source tubes.", muted=True)
 
-        if not quiet:
+        # Independent check: replay every transfer and compare each well with the layout.
+        volume = self._read_well_volume()
+        settings = PipettingSettings.from_dict(self.layout.pipetting)
+        report = check_plan(self.layout, plan, volume, settings)
+        failed = [w for w in report.wells if not w.ok]
+        if report.passed:
+            text, color = f"✓ Simulation: all {len(report.wells)} wells reach their target", SUCCESS
+        else:
+            text, color = f"✗ Simulation: {len(failed)} well(s), {len(report.problems)} transfer problem(s)", ERROR
+        first_line = self.prep_body.winfo_children()[0]
+        ctk.CTkLabel(self.prep_body, text=text, font=self.body_font, text_color=color, anchor="w").pack(
+            anchor="w", pady=(0, 6), before=first_line)
+
+        if not quiet and not report.passed:
+            self.flash("Simulation check failed — see Materials", ERROR)
+        elif not quiet:
             if warning_count or plan.warnings:
                 self.flash(f"Plan updated — {warning_count + len(plan.warnings)} warning(s)", WARNING)
             elif plan.needs_intermediate_plate:

@@ -28,6 +28,10 @@ Shares its look and core calculation code with the
 - **Transfer list**: every robot step in order (medium into the intermediate plate,
   intermediate preparation, dosing of the assay plate), exportable as CSV for the
   Opentrons protocol
+- **Simulation check**: every plan is replayed transfer by transfer, independently of the
+  planner, and each well is compared with the layout (concentration, volume, solvent %,
+  no well aspirated dry, every transfer ≥ the minimum). Shown in the app after
+  "Update plan" and available as `scripts/verify_plan.py`
 - **Files**: save/open layouts as JSON (including stocks and pipetting settings),
   export the layout and the transfer list as CSV
 
@@ -49,10 +53,13 @@ uv sync
 uv run python main.py
 ```
 
-## Tests
+## Checking the plan
 
 ```bash
-uv run pytest
+uv run pytest                                      # unit tests + 300 random plate layouts
+uv run python scripts/verify_plan.py               # simulate the built-in example plate
+uv run python scripts/verify_plan.py plate.json    # simulate a layout saved from the app
+uv run python scripts/verify_plan.py plate.json --min-transfer 5 --all
 ```
 
 ## Project structure
@@ -64,11 +71,14 @@ drug-screen-platform/
 │   ├── plate_formats.py   # plate geometry, well naming, Opentrons labware names
 │   ├── plate_layout.py    # layout model, dose series, JSON/CSV
 │   ├── dilution_planner.py # intermediate dilutions and ordered transfer list
+│   ├── plan_checker.py    # replays the transfers and checks every well
 │   ├── plate_canvas.py    # interactive plate widget
 │   ├── ui_helpers.py      # theme tokens and window helpers
 │   ├── calculators.py     # from Drug Concentration Calculator
 │   ├── formatters.py      # from Drug Concentration Calculator
 │   └── font_manager.py    # from Drug Concentration Calculator
+├── scripts/
+│   └── verify_plan.py     # command-line plan check
 ├── tests/
 └── assets/
 ```
