@@ -1,6 +1,6 @@
 # Hardwarehack: goals and plan
 
-**Physical AI for Science Hack @ Studio 45, Track B (Opentrons).** Draft for team review, written Saturday 2026-10-24 about 16:00 PDT and updated about 16:05 PDT after the planner landed on `main`, and again about 16:15 PDT to add G10. Questions and answers live in [issue #1](https://github.com/LamaSu/Hardwarehack/issues/1). This repo is public: no keys, IP addresses, robot serial numbers or proprietary compound data in it.
+**Physical AI for Science Hack @ Studio 45, Track B (Opentrons).** Draft for team review, written Saturday 2026-10-24 about 16:00 PDT and updated about 16:05 PDT after the planner landed on `main`, again about 16:15 PDT to add G10, and again about 16:45 PDT after `ebrinz`'s web UI, API and Flex tooling (details in [docs/opentrons-integration.md](docs/opentrons-integration.md)). Questions and answers live in [issue #1](https://github.com/LamaSu/Hardwarehack/issues/1). This repo is public: no keys, IP addresses, robot serial numbers or proprietary compound data in it.
 
 ## Vision
 
@@ -23,12 +23,12 @@ Track B brief on the event page: "Build and test new liquid-handling workflows o
 | Schedule | Sat 10/24 9:30 AM to Sun 10/25 5:30 PM PDT. Hacking from Sat 12 PM, robots sleep at Sat midnight, doors open Sun 8 AM, **final submission Sun 2:30 PM**, demos from 3:30 PM. Everyone demos something. The two pages list slightly different Sunday agendas. | [hack page](https://luma.com/3vc5oeit), [demos page](https://luma.com/t73di5w3) |
 | Robot | Opentrons Flex, robot software 10.1.0 (released 2026-10-15), ours for the whole weekend, plate gripper and 8-channel 1000 µL pipette, connected over Wi-Fi. | team, [release](https://github.com/Opentrons/opentrons/releases/tag/v10.1.0) |
 | Pipette | Flex 8-Channel 1000 µL: **5 to 1000 µL**. Tips 50, 200 or 1000 µL. The 1 µL minimum belongs to the 50 µL pipettes. | [Opentrons docs](https://docs.opentrons.com/flex/system-description/pipettes/) |
-| Python | `opentrons==10.1.0` is on PyPI and needs Python 3.10 or newer. Protocol API goes up to 2.30. Load name `flex_8channel_1000`. | PyPI, [versioning](https://docs.opentrons.com/v2/versioning.html), [loading pipettes](https://docs.opentrons.com/v2/pipettes/loading.html) |
+| Python | `opentrons==10.1.0` is on PyPI. Its metadata says Python 3.10 or newer, but the simulator only imports on **Python 3.12 or newer** (tested on 3.11: fails). Protocol API goes up to 2.30. Load name `flex_8channel_1000`. | PyPI, [versioning](https://docs.opentrons.com/v2/versioning.html), [loading pipettes](https://docs.opentrons.com/v2/pipettes/loading.html) |
 | 8-channel layouts | Full column (default), SINGLE (start A1 or H1) and PARTIAL_COLUMN (start H1, 2 to 7 tips). The last two need API 2.20. Pass `tip_racks` on every `configure_nozzle_layout()` call. | [partial tip pickup](https://docs.opentrons.com/v2/pipettes/partial_tip_pickup.html) |
 | CSV parameter | `parameters.add_csv_file(...)` from API 2.20. One CSV per run, picked at run setup in the Opentrons App or from a USB drive on the touchscreen. | [parameters](https://docs.opentrons.com/v2/parameters/defining.html) |
 | Gripper | `move_labware(..., use_gripper=True)` since API 2.15. | versioning page |
 | Robot login | 10.x adds user accounts, login tokens, roles and audit logs. We have not tested whether it is switched on for our robot. | release notes v10.0.0 and v10.1.0 |
-| Planner | Drug Screen Designer, now on `main` in `drug-screen-platform/` (merged 15:46 PDT): plate layouts, dose series, C1·V1=C2·V2, automatic intermediate dilutions, an ordered transfer list (CSV) and an independent plan checker. Python 3.11, uv, CustomTkinter. | this repo |
+| Planner | Drug Screen Designer, now on `main` in `drug-screen-platform/` (merged 15:46 PDT): plate layouts, dose series, C1·V1=C2·V2, automatic intermediate dilutions, an ordered transfer list (CSV) and an independent plan checker. On `main`: Python 3.11, uv, CustomTkinter desktop app. On branch `ebrinz` (not merged yet): Python 3.12, FastAPI backend, Next.js web UI, `plate` and `flex` CLIs, a Flex protocol generator and a robot client. | this repo |
 
 ## Scope
 
@@ -36,7 +36,7 @@ Track B brief on the event page: "Build and test new liquid-handling workflows o
 - Plan, check, generate a protocol, simulate it, and run a real dye dose-response plate on the Flex with the 8-channel pipette and the gripper.
 - A barcode step before the run that loads the stocks (real scanner or mock).
 - A well ledger (SQLite) behind a live plate view: every well's contents, timestamps and actions, with provenance from stock to intermediate to assay well and the stock volume remaining (G10).
-- A CLI for the non-GUI steps, plus the existing GUI for layout design.
+- A CLI for the non-browser steps, plus the web UI for layout design.
 - README, a 2-minute and a 5-minute demo script, a backup video.
 
 **Stretch**
@@ -89,7 +89,9 @@ Done when: the demo layout plans at 5 µL with no warnings, every transfer is at
 ### G2. Transfer list to Flex protocol
 Goal: turn the ordered transfer list into a Flex Python protocol that simulates cleanly.
 
-First decision (30 minutes): (a) one fixed, tested protocol that reads the transfer list as a CSV runtime parameter (API 2.20 or newer), or (b) a generator that writes a self-contained protocol with the transfers embedded. Suggested: (a) first. It is easier to simulate and test, and the same file runs from the Opentrons App.
+Status (16:45 PDT): a first generator exists on branch `ebrinz` (`src/protocol_generator.py`). It embeds the transfers and assumes two 1-channel pipettes. It simulates cleanly as written, but fails with the 8-channel (out of tips, then collision errors in SINGLE-nozzle mode). The 8-channel column-batch rewrite is the work: see [docs/opentrons-integration.md](docs/opentrons-integration.md).
+
+First decision (30 minutes): (a) one fixed, tested protocol that reads the transfer list as a CSV runtime parameter (API 2.20 or newer), or (b) a generator that writes a self-contained protocol with the transfers embedded. Decided in practice: (b), as built on `ebrinz`'s branch. (a) stays an option if embedding gets awkward.
 
 The protocol must handle:
 - A deck map (example below): stock plate, intermediate plate, assay plate, medium reservoir, tip racks and a trash bin (the docs' examples load it at A3).
@@ -122,6 +124,7 @@ Example deck map (**example only, the real deck is unknown, see Q3**):
 Every load name above exists in the Opentrons labware library.
 
 ### G3. Robot bring-up and runs
+- Status: `flex health`, `flex run` and `flex demo` exist on branch `ebrinz` (with `--mock`), untested on the real robot. Add token support if the robot requires a login.
 - Reachability over Wi-Fi: read the Flex's IP off the touchscreen, then `curl -s -H "Opentrons-Version: *" http://<FLEX_IP>:31950/health` (expect `api_version` 10.1.0) and the same for `/protocols` (200 means open, 401 or 403 means a login is required). Do not paste the IP or serial number into this repo.
 - If the venue network blocks it: phone hotspot or travel router, an Ethernet cable, USB-B to the laptop with the Opentrons App, or a USB stick into the touchscreen.
 - Labware position check, gripper test, tip pickup with the 8-channel, then a water dry run, then a dye run.
@@ -130,7 +133,7 @@ Every load name above exists in the Opentrons labware library.
 Done when: one full run of the demo plan completes on the Flex, with a photo of the plate and a video saved, and the deck layout is written down in `docs/` (no IPs or serial numbers).
 
 ### G4. CLI
-Thin commands over `src/` (the GUI and CLI share one code path): `plan`, `check`, `protocol`, `simulate`, `scan`, `log`, and `run` as a stretch.
+Status: `plate` (check, plan, protocol, simulate) and `flex` (health, snapshot, run, status, pause, stop, demo) exist on branch `ebrinz`. Still to add: `scan` and `log` (G5, G10). The CLIs call the same `src/` code as the API.
 
 Done when: `--help` lists them, each works on the demo layout JSON, and the demo uses the CLI.
 
@@ -176,7 +179,7 @@ Design (small and testable):
 - **Scan.** `scan_plate(barcode)` looks the plate up (G5, G6), loads its stocks into the ledger and the plan, and logs a `scan_plate` event. Unknown barcode: block with a clear message, or register it in the mock flow.
 - **Three ways to feed it.** (1) Simulation: a runner plays `plan.transfers` with timestamps. This is the digital twin and works without the robot. (2) Robot, live: poll the run's commands over the robot's HTTP API (each `aspirate` and `dispense` carries a well, a volume and start and finish times). It may need a login, so it is a stretch. (3) Robot, after the fact: import the run log and compare it with the simulation, flagging any difference.
 - **Multi-channel.** An 8-channel move writes eight events that share a `step` and carry a `channel` number.
-- **GUI.** A "Live plates" tab showing the stock, intermediate and assay plates. Each well is coloured by liquid and filled by volume. Click a well to see its contents (liquids, volumes, concentrations, solvent %) and its history (time, action, volume, step). A strip shows the stock inventory. The tab polls the ledger every half second, and the widget code lives in `src/`, keeping `main.py` thin.
+- **GUI.** A "Live plates" tab in the web UI (`web/`) showing the stock, intermediate and assay plates. Each well is coloured by liquid and filled by volume. Click a well to see its contents (liquids, volumes, concentrations, solvent %) and its history (time, action, volume, step). A strip shows the stock inventory. The tab polls the API every half second, and the ledger logic lives in `src/`.
 
 Build order (each step is demoable):
 1. Ledger core, reducer and tests: replaying a plan's transfers gives the same final wells as `check_plan` for the 300 random layouts.
@@ -200,7 +203,7 @@ Done when: in simulation, scanning the stock plate barcode fills the stock view,
 
 | When | Target |
 |---|---|
-| Sat now to 6 PM | The planner is on `main`; fix the 5 µL default, decide the G2 design, robot hello world (connect, labware position check, tip pickup, gripper moves a plate), choose the barcode and LIMS routes |
+| Sat now to 6 PM | Merge `ebrinz` into `main` and get everyone on Python 3.12; fix the 5 µL default, decide the G2 design, robot hello world (connect, labware position check, tip pickup, gripper moves a plate), choose the barcode and LIMS routes |
 | Sat 6 to 7 PM | Dinner. 10-minute sync: what is merged, what is blocked |
 | Sat 7 PM to midnight | First real dye run, scan and log in the loop. At least one end-to-end pass before the robots sleep |
 | Sun 8 to 11 AM | Full run, record the backup video, fix what broke |
@@ -224,6 +227,8 @@ About 9 hours of robot time remain on Saturday evening and 6.5 on Sunday morning
 | No CI, tests only run when someone remembers | Add a GitHub Action for pytest, add simulation once G2 lands |
 | LIMS integration eats the weekend | In-repo registry first, real LIMS only as a stretch behind the same adapter |
 | The live robot feed needs network access or a login | Simulation and the after-run import are the default, live polling is a stretch |
+| `opentrons` 10.1.0 only imports on Python 3.12 or newer | Everyone runs `uv python install 3.12`, CI uses 3.12 |
+| The generator assumes 1-channel pipettes, our Flex has the 8-channel | Column batches plus a stock plate, see [docs/opentrons-integration.md](docs/opentrons-integration.md) |
 
 ## Questions from issue #1
 
@@ -241,7 +246,7 @@ About 9 hours of robot time remain on Saturday evening and 6.5 on Sunday morning
 | Q10 | Scanner | Unanswered. Default: USB handheld, mock if none. |
 | Q11 | LIMS access | Unanswered. Default: SQLite registry with an adapter. |
 | Q12 | What to track | Proposal in G6. |
-| Q13 | Stack | Answered by the planner: Python 3.11, uv, CustomTkinter. |
+| Q13 | Stack | Answered by `ebrinz`'s branch: Python 3.12, FastAPI, Next.js, Typer CLIs (replaces the desktop GUI once merged). |
 | Q14 | Demo machine | Unanswered. |
 | Q15 | Owners | Unanswered: claim a workstream above. |
 | Q16 | Repo rules | Answered by `ebrinz`'s branching rules in `CLAUDE.md` (15:46 PDT). Still open: an MIT license at the repo root, a root `.gitignore`, nothing secret in the repo. `ebrinz` also replied "looks good to me" on the issue, read here as agreeing with the defaults. |
@@ -249,7 +254,7 @@ About 9 hours of robot time remain on Saturday evening and 6.5 on Sunday morning
 ## Working agreement
 
 - Done means watched-it-work: say what you ran and what you saw. "Written, not tested" is a fine status.
-- Keep everything the robot needs in `src/`, and keep `main.py` for the GUI.
+- Keep everything the robot needs in `src/`, not in `api/`, `cli/` or `web/`.
 - The branching rules are in `CLAUDE.md`. Pull `main` into your branch often.
 - Planning and review support comes from Claude Code in LamaSu's session. Code changes come from the team.
 
