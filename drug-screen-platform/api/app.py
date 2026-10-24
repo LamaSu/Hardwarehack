@@ -14,6 +14,7 @@ from flex_client import DEFAULT_PORT, FlexError
 from protocol_generator import ProtocolError
 
 LOCAL_ORIGINS = ["http://127.0.0.1:3000", "http://localhost:3000"]
+LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 
 
 def create_app() -> FastAPI:
@@ -25,6 +26,18 @@ def create_app() -> FastAPI:
         mock=os.environ.get("FLEX_MOCK") == "1",
     )
     app.add_middleware(CORSMiddleware, allow_origins=LOCAL_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+
+    @app.middleware("http")
+    async def local_browser_only(request: Request, call_next):
+        # This API moves a robot, so other websites must not reach it through the
+        # user's browser: a foreign Host means DNS rebinding, a foreign Origin or a
+        # cross-site fetch means CSRF.
+        if request.url.hostname not in LOCAL_HOSTS:
+            return JSONResponse({"detail": "Host not allowed"}, status_code=400)
+        origin = request.headers.get("origin")
+        if (origin and origin not in LOCAL_ORIGINS) or request.headers.get("sec-fetch-site") in ("cross-site", "same-site"):
+            return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
+        return await call_next(request)
 
     def error(status: int):
         async def handler(_request: Request, exc: Exception) -> JSONResponse:

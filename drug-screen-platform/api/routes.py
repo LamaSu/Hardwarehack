@@ -3,11 +3,13 @@
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Path as PathParam, Request
 from fastapi.responses import FileResponse, PlainTextResponse
 
 import run_store
-from api.schemas import LayoutBody, PlateRef, RobotConfig, SnapshotBody, check_json, formats_json, plan_json
+from api.schemas import RUN_ID_PATTERN, LayoutBody, PlateRef, RobotConfig, SnapshotBody, check_json, formats_json, plan_json
 from dilution_planner import export_transfers_csv
 from flex_client import client_from_env
 from planning import materials, plan_layout
@@ -16,6 +18,7 @@ from protocol_generator import generate_protocol, tube_map
 from simulation import simulate_protocol
 
 router = APIRouter()
+RunId = Annotated[str, PathParam(pattern=RUN_ID_PATTERN)]
 MEDIA_TYPES = {".jpg": "image/jpeg", ".json": "application/json", ".py": "text/x-python", ".csv": "text/csv"}
 
 
@@ -152,7 +155,7 @@ def start_run(body: PlateRef, request: Request) -> dict:
 
 
 @router.get("/robot/runs/{run_id}")
-def run_status(run_id: str, request: Request, plate: str = "") -> dict:
+def run_status(run_id: RunId, request: Request, plate: str = "") -> dict:
     data = _robot(request).run_status(run_id)
     status = {"id": run_id, "status": data.get("status"),
               "errors": [e.get("detail", str(e)) for e in data.get("errors", [])]}
@@ -167,7 +170,7 @@ def run_status(run_id: str, request: Request, plate: str = "") -> dict:
 
 
 @router.post("/robot/runs/{run_id}/{action}")
-def run_action(run_id: str, action: str, request: Request) -> dict:
+def run_action(run_id: RunId, action: str, request: Request) -> dict:
     if action not in ("play", "pause", "stop"):
         raise HTTPException(404, f"Unknown action {action}")
     _robot(request).action(run_id, action)

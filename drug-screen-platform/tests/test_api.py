@@ -12,7 +12,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr("run_store.RUNS_DIR", tmp_path / "runs")
     monkeypatch.delenv("FLEX_HOST", raising=False)
     monkeypatch.delenv("FLEX_MOCK", raising=False)
-    return TestClient(create_app())
+    return TestClient(create_app(), base_url="http://127.0.0.1:8000")
 
 
 def _layout() -> dict:
@@ -95,3 +95,30 @@ def test_cors_only_for_local_ui(client):
     evil = client.options("/formats", headers={"Origin": "http://evil.com",
                                                "Access-Control-Request-Method": "GET"})
     assert "access-control-allow-origin" not in evil.headers
+
+
+def test_foreign_host_rejected(client):
+    """DNS rebinding: a page on evil.com resolving to 127.0.0.1 sends Host: evil.com."""
+    assert client.get("/formats", headers={"Host": "evil.com"}).status_code == 400
+
+
+def test_cross_site_post_rejected(client):
+    client.put("/robot/config", json={"host": "", "port": 31950, "mock": True})
+    for headers in ({"Origin": "http://evil.com"}, {"Sec-Fetch-Site": "cross-site"}):
+        response = client.post("/robot/runs/mock-run/play", headers=headers)
+        assert response.status_code == 403, headers
+    assert client.post("/robot/runs/mock-run/play",
+                       headers={"Origin": "http://127.0.0.1:3000", "Sec-Fetch-Site": "same-origin"}).status_code == 200
+
+
+def test_robot_host_must_be_a_plain_host(client):
+    for host in ("evil.com/x", "a@b", "http://10.0.0.1", "10.0.0.1:80", "a b"):
+        assert client.put("/robot/config", json={"host": host, "port": 31950}).status_code == 422, host
+    assert client.put("/robot/config", json={"host": "192.168.0.42", "port": 31950}).status_code == 200
+    assert client.put("/robot/config", json={"host": "opentrons-flex.local", "port": 31950}).status_code == 200
+
+
+def test_run_id_validated(client):
+    client.put("/robot/config", json={"host": "", "port": 31950, "mock": True})
+    assert client.get("/robot/runs/..%2Fhealth").status_code in (404, 405, 422)
+    assert client.get("/robot/runs/a.b").status_code == 422

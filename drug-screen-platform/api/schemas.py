@@ -3,7 +3,7 @@
 from dataclasses import asdict
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from dilution_planner import STOCK, DilutionPlan
 from plan_checker import CheckReport
@@ -26,9 +26,14 @@ class SnapshotBody(BaseModel):
     tag: Literal["before", "after"]
 
 
+RUN_ID_PATTERN = r"^[A-Za-z0-9-]{1,64}$"
+
+
 class RobotConfig(BaseModel):
-    host: str = ""
-    port: int = 31950
+    """Robot address; ``host`` is a bare IP or host name so it can't redirect requests elsewhere."""
+
+    host: str = Field("", pattern=r"^[A-Za-z0-9.-]{0,253}$")
+    port: int = Field(31950, ge=1, le=65535)
     mock: bool = False
 
 
