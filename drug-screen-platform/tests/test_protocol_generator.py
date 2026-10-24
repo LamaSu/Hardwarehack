@@ -90,3 +90,19 @@ def test_too_many_stocks_refused():
         layout.stocks[drug] = StockSolution(10, "mM", "Water")
     with pytest.raises(ProtocolError, match="24"):
         generate_protocol(layout, plan_layout(layout).plan)
+
+
+def test_names_cannot_inject_code():
+    import ast
+
+    hostile = 'Evil"""\nimport os\nos.system("echo pwned")\n"""'
+    layout = PlateLayout("96-well", hostile)
+    drug = "X\nimport subprocess  # \r y"
+    layout.apply_dose_series([f"A{c}" for c in range(1, 4)], drug, 20, "µM", 2)
+    layout.stocks[drug] = StockSolution(10, "mM", "DMSO")
+    text = generate_protocol(layout, plan_layout(layout).plan)
+    tree = ast.parse(text)
+    assert not [n for n in ast.walk(tree) if isinstance(n, (ast.Import, ast.ImportFrom))]
+    assert not [n for n in ast.walk(tree) if isinstance(n, ast.Call)
+                and getattr(n.func, "attr", "") == "system"]
+    _simulate(text)
