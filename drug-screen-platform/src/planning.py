@@ -73,3 +73,24 @@ def example_layout() -> PlateLayout:
     for drug in ("Erastin", "RSL3", "Staurosporine"):
         layout.stocks[drug] = StockSolution(10, "mM", "DMSO")
     return layout
+
+
+def materials(layout: PlateLayout, plan: DilutionPlan) -> list[str]:
+    """Human-readable list of what to prepare for ``plan``."""
+    from dilution_planner import INTERMEDIATE_LABWARE
+    from formatters import format_number
+
+    if not plan.stock_usage_ul:
+        return ["Nothing to dose yet."]
+    lines = []
+    for liquid, total in plan.stock_usage_ul.items():
+        stock = layout.stocks.get(liquid)
+        source = (f"{format_number(stock.concentration)} {stock.unit} in {stock.solvent}"
+                  if stock else liquid.replace(" (vehicle)", ""))
+        lines.append(f"{liquid}: {format_number(total, 'µl')} µL of {source}")
+    if plan.needs_intermediate_plate:
+        medium = sum(i.medium_volume_ul for i in plan.intermediates)
+        lines.append(f"Intermediate plate: {len(plan.intermediates)} wells ({INTERMEDIATE_LABWARE}), "
+                     f"{format_number(medium, 'µl')} µL medium")
+    lines.append(f"{len(plan.transfers)} transfers in total. Add dead volume to source tubes.")
+    return lines
