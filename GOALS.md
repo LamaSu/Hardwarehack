@@ -1,6 +1,6 @@
 # Hardwarehack: goals and plan
 
-**Physical AI for Science Hack @ Studio 45, Track B (Opentrons).** Draft for team review, written Saturday 2026-10-24 about 16:00 PDT and updated about 16:05 PDT after the planner landed on `main`. Questions and answers live in [issue #1](https://github.com/LamaSu/Hardwarehack/issues/1). This repo is public: no keys, IP addresses, robot serial numbers or proprietary compound data in it.
+**Physical AI for Science Hack @ Studio 45, Track B (Opentrons).** Draft for team review, written Saturday 2026-10-24 about 16:00 PDT and updated about 16:05 PDT after the planner landed on `main`, and again about 16:15 PDT to add G10. Questions and answers live in [issue #1](https://github.com/LamaSu/Hardwarehack/issues/1). This repo is public: no keys, IP addresses, robot serial numbers or proprietary compound data in it.
 
 ## Vision
 
@@ -12,7 +12,7 @@ The demo in five steps:
 2. Choose target concentrations and wells in the Drug Screen Designer (GUI) or with the CLI.
 3. The planner computes volumes and intermediate dilutions. The plan checker replays the plan and confirms every well.
 4. A Flex protocol is generated, simulated, then run on the Flex (8-channel 1000 µL pipette, plate gripper).
-5. The sample log shows every transfer and the volume left in each stock.
+5. A live plate view shows every well (volume, liquids, concentrations, timestamps and the actions taken on it) as the run proceeds, and the stock inventory goes down as it is used.
 
 Track B brief on the event page: "Build and test new liquid-handling workflows on the Flex." Prizes, judging criteria and demo length are not stated on either Luma page. Ask a host.
 
@@ -35,7 +35,7 @@ Track B brief on the event page: "Build and test new liquid-handling workflows o
 **MVP (must work by the Sunday 12:30 PM feature freeze)**
 - Plan, check, generate a protocol, simulate it, and run a real dye dose-response plate on the Flex with the 8-channel pipette and the gripper.
 - A barcode step before the run that loads the stocks (real scanner or mock).
-- A sample log (SQLite or CSV) with provenance from stock to intermediate to assay well and the stock volume remaining.
+- A well ledger (SQLite) behind a live plate view: every well's contents, timestamps and actions, with provenance from stock to intermediate to assay well and the stock volume remaining (G10).
 - A CLI for the non-GUI steps, plus the existing GUI for layout design.
 - README, a 2-minute and a 5-minute demo script, a backup video.
 
@@ -62,6 +62,7 @@ Nobody is assigned yet. Claim one by commenting on issue #1 or by editing this t
 | G7 | Verification | everyone | continuous |
 | G8 | Demo and submission | unclaimed | Sun 2:00 PM |
 | G9 | Repo and team hygiene | everyone | now |
+| G10 | Live well ledger and inventory | unclaimed (suggest `steffiAI` for the ledger and view) | Sat 11 PM (simulated), Sun 11 AM (robot feed, stretch) |
 
 ### G1. Planner ready for the 8-channel
 Goal: plans the 8-channel 1000 µL pipette can actually execute.
@@ -165,6 +166,26 @@ Done when: someone who did not build it can run the demo from the README in 10 m
 - Add a root `.gitignore` (`.env*`, local config, `data/`). Nothing secret, no IPs, no serial numbers, no proprietary data.
 - Resolve the unknowns with a host: demo length, judging criteria, which Sunday agenda is current.
 
+### G10. Live well ledger and inventory
+Goal: the GUI shows what is in every well right now, when it got there and what was done to it, and the stock inventory goes down as liquid is used. Scanning a plate loads it.
+
+Design (small and testable):
+- **Ledger.** An append-only event log (SQLite in WAL mode, so the CLI and the GUI can share it). One event per action per well. Fields: `id`, `ts` (UTC, ISO 8601), `run_id`, `source` (`sim`, `robot`, `scan`, `manual`), `action` (`scan_plate`, `register_stock`, `fill`, `aspirate`, `dispense`, `mix`, `move_plate`, `discard`, `note`), `labware` (role and barcode), `well`, `liquid`, `volume_ul` (positive added, negative removed), `step` (the transfer step number), `channel`, `detail`.
+- **State.** A reducer replays the events into per-well contents: total volume, each compound's amount (so its concentration), solvent volumes, medium volume, and the event history. The math already exists as `_WellContents` in `plan_checker.py` (well-mixed assumption). Move it into `src/well_ledger.py` so the offline checker and the live view cannot disagree.
+- **Inventory.** Stock wells are ledger wells too. Aspirating from a stock reduces its remaining volume, and the same call goes through the sample-log adapter (G6), so SQLite today and a LIMS later show the same number. Warn when a stock would drop below its dead volume.
+- **Scan.** `scan_plate(barcode)` looks the plate up (G5, G6), loads its stocks into the ledger and the plan, and logs a `scan_plate` event. Unknown barcode: block with a clear message, or register it in the mock flow.
+- **Three ways to feed it.** (1) Simulation: a runner plays `plan.transfers` with timestamps. This is the digital twin and works without the robot. (2) Robot, live: poll the run's commands over the robot's HTTP API (each `aspirate` and `dispense` carries a well, a volume and start and finish times). It may need a login, so it is a stretch. (3) Robot, after the fact: import the run log and compare it with the simulation, flagging any difference.
+- **Multi-channel.** An 8-channel move writes eight events that share a `step` and carry a `channel` number.
+- **GUI.** A "Live plates" tab showing the stock, intermediate and assay plates. Each well is coloured by liquid and filled by volume. Click a well to see its contents (liquids, volumes, concentrations, solvent %) and its history (time, action, volume, step). A strip shows the stock inventory. The tab polls the ledger every half second, and the widget code lives in `src/`, keeping `main.py` thin.
+
+Build order (each step is demoable):
+1. Ledger core, reducer and tests: replaying a plan's transfers gives the same final wells as `check_plan` for the 300 random layouts.
+2. Simulation runner and the Live plates tab.
+3. Scan hook with the mock scanner: a scan loads the stocks, and stock volumes drop during the run.
+4. Robot feed (stretch).
+
+Done when: in simulation, scanning the stock plate barcode fills the stock view, running the plan fills the wells one action at a time, clicking any well shows its liquids, concentrations, timestamps and actions, the stock inventory has dropped by the volumes used, and the final ledger agrees with `check_plan`.
+
 ## Hand-offs between workstreams
 
 | Hand-off | Status | Notes |
@@ -173,7 +194,7 @@ Done when: someone who did not build it can run the demo from the README in 10 m
 | Transfer list CSV | exists | columns: step, phase, source_labware, source_well, dest_labware, dest_well, volume_ul, liquid. Labware are roles (stock, medium, intermediate, assay), not deck slots. |
 | Plan extras | new (G1) | medium pre-fill per assay well, physical stock location per compound, reservoir well |
 | Deck map | new (G2, G3) | role to labware load name and slot, tip racks, trash, gripper |
-| Run record | new (G6) | run id, protocol file hash, time, planned volume per transfer, scanned barcodes |
+| Ledger events and run record | new (G10, G6) | event schema in G10, plus run id, protocol file hash and scanned barcodes |
 
 ## Schedule (PDT)
 
@@ -202,6 +223,7 @@ About 9 hours of robot time remain on Saturday evening and 6.5 on Sunday morning
 | Large single `main.py` GUI file collides when several people edit it | Keep GUI hooks small, put logic in `src/`, merge often |
 | No CI, tests only run when someone remembers | Add a GitHub Action for pytest, add simulation once G2 lands |
 | LIMS integration eats the weekend | In-repo registry first, real LIMS only as a stretch behind the same adapter |
+| The live robot feed needs network access or a login | Simulation and the after-run import are the default, live polling is a stretch |
 
 ## Questions from issue #1
 
