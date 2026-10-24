@@ -1,0 +1,14 @@
+[project]
+name = "drug-screen-platform"
+version = "0.1.0"
+description = "Design drug screening plates and generate pipetting worklists for the Opentrons Flex"
+requires-python = ">=3.11"
+dependencies = [
+    "customtkinter>=5.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pyinstaller>=6.0",
+]
