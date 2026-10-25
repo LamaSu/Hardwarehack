@@ -1,7 +1,7 @@
 // Ready-made orders for demos. Trough numbers refer to the default trough names
-// (1 Bruinen Spring Water, 2 Meduseld Mead, 3 Athelas Infusion, 4 Dorwinion Red,
-// 5 Light of Eärendil, 6 Ent-draught, 7 Orodruin Ember, 8 Green Dragon Cider,
-// 9 Rivendell Rosewater, 10 Mithril Saline, 11 Lembas Broth, 12 Miruvor Cordial).
+// (1 0.9% Saline, 2 Methotrexate, 3 5% Dextrose (D5W), 4 Doxorubicin, 5 Paclitaxel,
+// 6 Sterile Water, 7 5-Fluorouracil, 8 Cisplatin, 9 Epirubicin, 10 PBS buffer,
+// 11 DMSO vehicle, 12 Carboplatin). Demo mixtures only: the volumes are not dosing guidance.
 // Every template stays within the robot's rules: ≥ 5 µL per draw, ≤ 200 µL per well,
 // and at most one rack (12 columns) of each tip size.
 import type { Recipe } from "./apothecary";
@@ -9,30 +9,32 @@ import type { Recipe } from "./apothecary";
 export interface Template { id: string; name: string; recipes: Recipe[] }
 
 /** Template a plate starts with the first time it's opened. */
-export const DEFAULT_TEMPLATE_ID = "pony";
+export const DEFAULT_TEMPLATE_ID = "single";
 
 const r = (column: number, name: string, ...parts: [number, number][]): Recipe =>
   ({ column, name, ingredients: parts.map(([trough, volume_ul]) => ({ trough, volume_ul })) });
 
 export const TEMPLATES: Template[] = [
-  { id: "fellowship", name: "Fellowship sampler", recipes: [
-    r(1, "Kingsfoil Tonic", [3, 40], [1, 60]),
-    r(2, "Miruvor Restorative", [12, 30], [2, 20], [10, 50]),
-    r(3, "Ent-draught Elixir", [6, 80], [8, 20]),
-    r(4, "Elven Rosewater Mist", [9, 25], [5, 15], [11, 40]),
+  { id: "single", name: "Single-agent panel", recipes: [
+    r(1, "Doxorubicin in saline", [4, 20], [1, 80]),
+    r(2, "Paclitaxel in D5W", [5, 20], [3, 80]),
+    r(3, "Cisplatin in saline", [8, 25], [1, 75]),
+    r(4, "5-Fluorouracil in saline", [7, 30], [1, 70]),
+    r(5, "Methotrexate in PBS", [2, 15], [10, 85]),
+    r(6, "Vehicle control (DMSO)", [11, 5], [1, 95]),
   ] },
-  { id: "healing", name: "Houses of Healing", recipes: [
-    r(1, "Athelas Poultice", [3, 100], [10, 80]),
-    r(2, "Kingsfoil Draught", [3, 30], [1, 30], [2, 10]),
-    r(3, "Breath of Elbereth", [5, 20], [9, 20], [1, 60]),
+  { id: "combos", name: "Combination regimens", recipes: [
+    r(1, "Paclitaxel + carboplatin", [5, 15], [12, 15], [3, 70]),
+    r(2, "Cisplatin + 5-FU", [8, 20], [7, 20], [1, 60]),
+    r(3, "Doxorubicin + paclitaxel", [4, 15], [5, 15], [3, 70]),
+    r(4, "Epirubicin + 5-FU", [9, 15], [7, 15], [1, 70]),
   ] },
-  { id: "pony", name: "Prancing Pony tasting", recipes: [
-    r(1, "Bree Ale Shandy", [8, 50], [2, 50]),
-    r(2, "Dorwinion Spritz", [4, 40], [1, 40]),
-    r(3, "Ember Toddy", [7, 20], [2, 30], [1, 50]),
-    r(4, "Lembas and Honey", [11, 60], [2, 20]),
-    r(5, "Ent Cooler", [6, 50], [8, 25]),
-    r(6, "Miruvor Nightcap", [12, 25], [5, 15]),
+  { id: "dox-dose", name: "Doxorubicin dose response", recipes: [
+    r(1, "Doxorubicin 1:2", [4, 50], [1, 50]),
+    r(2, "Doxorubicin 1:4", [4, 25], [1, 75]),
+    r(3, "Doxorubicin 1:8", [4, 12.5], [1, 87.5]),
+    r(4, "Doxorubicin 1:16", [4, 6.25], [1, 93.75]),
+    r(5, "Saline control", [1, 100]),
   ] },
 ];
 

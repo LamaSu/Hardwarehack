@@ -27,9 +27,9 @@ describe("default concoction names", () => {
     const named = withDefaultNames("Batch 2", [
       { column: 1, name: "", ingredients: [{ trough: 1, volume_ul: 10 }] },
       { column: 2, name: "  ", ingredients: [{ trough: 1, volume_ul: 10 }] },
-      { column: 3, name: "Kingsfoil tonic", ingredients: [{ trough: 1, volume_ul: 10 }] },
+      { column: 3, name: "Cisplatin in saline", ingredients: [{ trough: 1, volume_ul: 10 }] },
     ]);
-    expect(named.map((r) => r.name)).toEqual(["Batch 2 column 1", "Batch 2 column 2", "Kingsfoil tonic"]);
+    expect(named.map((r) => r.name)).toEqual(["Batch 2 column 1", "Batch 2 column 2", "Cisplatin in saline"]);
   });
 });
 

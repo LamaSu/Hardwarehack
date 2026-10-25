@@ -25,7 +25,7 @@ const draftsKey = (plate: string) => `athelas.drafts.${plate}`;
 const templateKey = (plate: string) => `athelas.template.${plate}`;
 // Which template the plate's order came from, and the drafts it produced (to tell if they were edited).
 type Loaded = { id: string; snapshot: string } | null;
-// A plate opened for the first time starts with the default template (the Prancing Pony tasting).
+// A plate opened for the first time starts with the default template (the single-agent panel).
 const initialDrafts = (plate: string): Record<number, Recipe> =>
   store.has(draftsKey(plate)) ? store.get(draftsKey(plate), {}) : templateDrafts(DEFAULT_TEMPLATE_ID);
 const initialLoaded = (plate: string): Loaded => {

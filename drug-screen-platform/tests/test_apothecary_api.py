@@ -14,15 +14,15 @@ def client(tmp_path, monkeypatch):
 
 
 ORDER = {"plate": "Batch 1", "recipes": [
-    {"column": 1, "name": "Kingsfoil tonic", "ingredients": [{"trough": 1, "volume_ul": 40}, {"trough": 3, "volume_ul": 10}]},
-    {"column": 2, "name": "Miruvor", "ingredients": [{"trough": 2, "volume_ul": 120}]},
+    {"column": 1, "name": "Cisplatin in saline", "ingredients": [{"trough": 1, "volume_ul": 40}, {"trough": 3, "volume_ul": 10}]},
+    {"column": 2, "name": "Doxorubicin in D5W", "ingredients": [{"trough": 2, "volume_ul": 120}]},
 ]}
 
 
 def test_initial_state(client):
     state = client.get("/apothecary/state", params={"plate": "Batch 1"}).json()
     assert len(state["troughs"]) == 12
-    assert state["troughs"][0] == {"trough": 1, "name": "Bruinen Spring Water", "color": state["troughs"][0]["color"], "volume_ul": None}
+    assert state["troughs"][0] == {"trough": 1, "name": "0.9% Saline", "color": state["troughs"][0]["color"], "volume_ul": None}
     assert state["tips"] == {"small_next": 1, "large_next": 1, "small_left": 12, "large_left": 12}
     assert state["columns"] == {} and state["robot"]["mock"] is True
 
@@ -53,7 +53,7 @@ def test_brew_runs_and_records(client):
     assert brew.json()["run_id"] == "mock-run"
     state = client.get("/apothecary/state", params={"plate": "Batch 1"}).json()
     assert state["tips"]["small_next"] == 3 and state["tips"]["large_next"] == 2
-    assert state["columns"]["1"]["name"] == "Kingsfoil tonic"
+    assert state["columns"]["1"]["name"] == "Cisplatin in saline"
     assert state["troughs"][0]["volume_ul"] == 1000 - 8 * 40
     again = client.post("/apothecary/brew", json=ORDER)
     assert again.status_code == 422 and "already holds a concoction" in again.json()["detail"]
@@ -79,13 +79,23 @@ def test_troughs_get_themed_default_names(client):
     assert all(len(name) <= 40 for name in names)
 
 
-def test_old_placeholder_names_upgrade_but_typed_names_stay(client):
+def test_old_default_names_upgrade_but_typed_names_stay(client):
     import apothecary_state
 
     state = apothecary_state.load()
-    state["troughs"][0]["name"] = "Trough 1"     # placeholder saved by an earlier version
-    state["troughs"][1]["name"] = "Saline"       # typed by someone
+    state["troughs"][0]["name"] = "Trough 1"            # placeholder saved by an earlier version
+    state["troughs"][3]["name"] = "Dorwinion Red"       # Middle-earth default from an earlier version
+    state["troughs"][1]["name"] = "My stock A"          # typed by someone
     apothecary_state.save(state)
     troughs = client.get("/apothecary/state").json()["troughs"]
-    assert troughs[0]["name"] == apothecary_state.DEFAULT_NAMES[0]
-    assert troughs[1]["name"] == "Saline"
+    assert troughs[0]["name"] == "0.9% Saline"
+    assert troughs[3]["name"] == "Doxorubicin"
+    assert troughs[1]["name"] == "My stock A"
+
+
+def test_trough_names_are_oncology_drugs_and_diluents():
+    import apothecary_state
+
+    names = apothecary_state.DEFAULT_NAMES
+    for expected in ("0.9% Saline", "5% Dextrose (D5W)", "DMSO vehicle", "Doxorubicin", "Paclitaxel", "Cisplatin"):
+        assert expected in names

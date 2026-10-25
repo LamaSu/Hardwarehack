@@ -15,20 +15,27 @@ FILE_NAME = "apothecary.json"
 # Liquid tints for the troughs, picked to stay distinguishable side by side.
 TINTS = ["#4F9DDE", "#E0A43A", "#5DB37E", "#C8566B", "#8A6FD1", "#3FB6B0",
          "#D9774A", "#A3B83D", "#D45FA6", "#6C8CA6", "#B88B5A", "#7C5CA3"]
-# Default trough names, one per tint above (Middle-earth apothecary stock).
+# Default trough names, one per tint above: oncology drugs and the diluents and vehicle
+# they're mixed with. Demo names only; the console's volumes are not dosing guidance.
 DEFAULT_NAMES = [
-    "Bruinen Spring Water",    # blue
-    "Meduseld Mead",           # amber
-    "Athelas Infusion",        # green: kingsfoil
-    "Dorwinion Red",           # red
-    "Light of Eärendil",       # violet
-    "Ent-draught",             # teal
-    "Orodruin Ember",          # orange
-    "Green Dragon Cider",      # lime
-    "Rivendell Rosewater",     # pink
-    "Mithril Saline",          # steel blue
-    "Lembas Broth",            # tan
-    "Miruvor Cordial",         # purple
+    "0.9% Saline",          # blue
+    "Methotrexate",         # amber: methotrexate solutions are yellow
+    "5% Dextrose (D5W)",    # green
+    "Doxorubicin",          # red: doxorubicin is red
+    "Paclitaxel",           # violet
+    "Sterile Water",        # teal
+    "5-Fluorouracil",       # orange
+    "Cisplatin",            # lime
+    "Epirubicin",           # pink: an anthracycline, red like doxorubicin
+    "PBS buffer",           # steel blue
+    "DMSO vehicle",         # tan
+    "Carboplatin",          # purple
+]
+# Defaults from earlier versions, replaced by today's default when still unchanged.
+OLD_DEFAULT_NAMES = [
+    ["Bruinen Spring Water", "Meduseld Mead", "Athelas Infusion", "Dorwinion Red", "Light of Eärendil",
+     "Ent-draught", "Orodruin Ember", "Green Dragon Cider", "Rivendell Rosewater", "Mithril Saline",
+     "Lembas Broth", "Miruvor Cordial"],
 ]
 
 
@@ -52,10 +59,12 @@ def load() -> dict:
         return _default()
     except (OSError, json.JSONDecodeError) as error:
         raise OSError(f"Could not read {_path()}: {error}") from error
-    # Earlier versions saved "Trough N" placeholders: give those the themed name; keep typed names.
+    # Earlier versions saved "Trough N" placeholders and other defaults: give those today's
+    # default name; names someone typed are kept.
     for trough in state["troughs"]:
-        if trough["name"] == f"Trough {trough['trough']}":
-            trough["name"] = DEFAULT_NAMES[trough["trough"] - 1]
+        index = trough["trough"] - 1
+        if trough["name"] == f"Trough {trough['trough']}" or any(old[index] == trough["name"] for old in OLD_DEFAULT_NAMES):
+            trough["name"] = DEFAULT_NAMES[index]
     return state
 
 

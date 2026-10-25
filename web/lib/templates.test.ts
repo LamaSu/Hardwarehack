@@ -3,8 +3,12 @@ import { MIN_DRAW_UL, total, WELL_CAPACITY_UL } from "./apothecary";
 import { DEFAULT_TEMPLATE_ID, TEMPLATES, templateDrafts } from "./templates";
 
 describe("order templates", () => {
-  it("default to the Prancing Pony tasting", () => {
-    expect(TEMPLATES.find((t) => t.id === DEFAULT_TEMPLATE_ID)?.name).toBe("Prancing Pony tasting");
+  it("default to the single-agent panel", () => {
+    expect(TEMPLATES.find((t) => t.id === DEFAULT_TEMPLATE_ID)?.name).toBe("Single-agent panel");
+  });
+
+  it("are oncology panels", () => {
+    expect(TEMPLATES.map((t) => t.name)).toEqual(["Single-agent panel", "Combination regimens", "Doxorubicin dose response"]);
   });
 
   it("have unique ids and names", () => {
@@ -52,20 +56,20 @@ describe("order templates", () => {
 describe("recognising a plate's template from its recipes", () => {
   it("finds an unedited template wherever its columns ended up", async () => {
     const { inferTemplate, draftsSignature } = await import("./templates");
-    const drafts = templateDrafts("pony");
-    expect(inferTemplate(drafts)).toEqual({ id: "pony", snapshot: draftsSignature(drafts) });
-    const moved = templateDrafts("healing", [3, 7, 8]);
-    expect(inferTemplate(moved)?.id).toBe("healing");
+    const drafts = templateDrafts("single");
+    expect(inferTemplate(drafts)).toEqual({ id: "single", snapshot: draftsSignature(drafts) });
+    const moved = templateDrafts("combos", [3, 7, 8, 9]);  // all 4 recipes, moved to free columns
+    expect(inferTemplate(moved)?.id).toBe("combos");
     expect(inferTemplate(moved)?.snapshot).toBe(draftsSignature(moved));
   });
 
   it("marks it edited when volumes changed or recipes were removed", async () => {
     const { inferTemplate, draftsSignature } = await import("./templates");
-    const drafts = templateDrafts("pony");
+    const drafts = templateDrafts("single");
     drafts[1].ingredients[0].volume_ul = 45;
-    expect(inferTemplate(drafts)?.id).toBe("pony");
+    expect(inferTemplate(drafts)?.id).toBe("single");
     expect(inferTemplate(drafts)?.snapshot).not.toBe(draftsSignature(drafts));
-    const fewer = templateDrafts("pony");
+    const fewer = templateDrafts("single");
     delete fewer[6];
     expect(inferTemplate(fewer)?.snapshot).not.toBe(draftsSignature(fewer));
   });

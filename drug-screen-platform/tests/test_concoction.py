@@ -10,8 +10,8 @@ from concoction import Ingredient, Recipe, order_summary, protocol_source, valid
 
 def order():
     return [
-        Recipe(1, [Ingredient(1, 40), Ingredient(3, 10)], "Kingsfoil tonic"),
-        Recipe(2, [Ingredient(2, 120), Ingredient(1, 30), Ingredient(4, 5)], "Miruvor"),
+        Recipe(1, [Ingredient(1, 40), Ingredient(3, 10)], "Cisplatin in saline"),
+        Recipe(2, [Ingredient(2, 120), Ingredient(1, 30), Ingredient(4, 5)], "Doxorubicin in D5W"),
     ]
 
 
