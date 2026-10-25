@@ -5,6 +5,9 @@ import type { NextConfig } from "next";
 const API_ORIGIN = process.env.API_ORIGIN ?? "http://127.0.0.1:8000";
 
 const nextConfig: NextConfig = {
+  // A separate output folder (NEXT_DIST_DIR=.next-test) lets a test build run without
+  // touching the .next folder a running `npm run dev` is using.
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
