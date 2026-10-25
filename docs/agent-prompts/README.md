@@ -4,6 +4,7 @@ Task briefs written in LamaSu's planning session for coding agents (Claude Code)
 
 | File | For | Task |
 |---|---|---|
+| [sample-registry.md](sample-registry.md) | LamaSu's agent | Build the SQLite sample registry and well ledger: schema, adapter, labels, scan page, API, bridge to the planner, CLI |
 | [8channel-generator.md](8channel-generator.md) | ebrinz's agent | Make the Flex protocol generator and the planner work with the 8-channel 1000 µL pipette (column batches, stock plate), plus robot-client gates and a per-command feed |
 
 ## How to use

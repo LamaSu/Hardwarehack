@@ -58,9 +58,9 @@ Acceptance: the generated protocol simulates on 10.1.0 for the 7 x 10 example, a
 
 ## 5. Robot side: gaps in the client and API
 
-- **No login support.** Robot software 10.x adds user accounts, tokens and roles (release notes v10.0.0 and v10.1.0). `FlexClient` sends only `Opentrons-Version: *`. Test `GET /protocols` on our robot. If it returns 401 or 403, add an optional token (`FLEX_TOKEN`, sent as a bearer header) and keep it out of the repo.
+- **Login.** Robot software 10.x adds user accounts, tokens and roles. On our robot reads work without a token (checked, see [robot-check-2026-10-24.md](../robot-check-2026-10-24.md)). Writes (upload, create run, play) were not tried, so keep the optional token support (`FLEX_TOKEN`, bearer header, never in the repo) in case they are refused.
 - **No per-command feed.** The spec lists `commands(run_id)` but the client does not implement it. G10 needs it: `GET /runs/{id}/commands` returns each command with its status and timestamps, which can become ledger events.
-- **Camera endpoints are unverified.** `snapshot()` tries `/camera/capturePreviewImage` then `/camera/picture`. Check against `http://<robot>:31950/openapi.json` on the robot. `capture_image` inside the protocol is a second route.
+- **Camera endpoints exist.** The robot's OpenAPI lists `POST /camera/capturePreviewImage` and `POST /camera/picture`. `capturePreviewImage` with body `{"data": {}}` returned a JPEG, and zoom, pan, brightness, contrast and saturation settings are accepted. `capture_image` inside the protocol is a second route.
 - **Start gate.** `POST /robot/runs` starts the stored `protocol.py` without checking that it simulated cleanly. Refuse to start unless the last simulation passed for that exact file (compare a hash).
 - **No labware offsets.** Runs started over HTTP use nominal positions. Run Labware Position Check in the Opentrons App for the first real run.
 - **Wi-Fi.** Reachability from the laptop to the Flex is untested (see G3 in `GOALS.md`). The `flex health` command is the first thing to run on the robot.
@@ -74,7 +74,7 @@ Acceptance: the generated protocol simulates on 10.1.0 for the 7 x 10 example, a
 | 2 | Python 3.12 on every laptop (`uv python install 3.12`) and `uv sync` | everyone | `uv run pytest` runs on all three |
 | 3 | Planner: 5 µL default, column-friendly check, stock-plate location, fill phase decision, intermediate plate capacity (G1) | `steffiAI` suggested | demo layout plans with no warnings |
 | 4 | Generator: 8-channel column batches, stock plate, tip columns, deck map file | unclaimed | 7 x 10 example simulates on 10.1.0 and the volumes check passes |
-| 5 | Robot check on the real Flex: `flex health`, `GET /protocols`, openapi, camera | whoever is at the robot | results written in this file |
+| 5 | Robot check on the real Flex | done 17:30 PDT | results in [robot-check-2026-10-24.md](../robot-check-2026-10-24.md). Still open: writes need a login?, labware and tip types on the deck |
 | 6 | Client: optional token, `commands()`, start gate | unclaimed | mock-transport tests pass |
 | 7 | Ledger feed from `commands()` into the Live plates view (G10) | unclaimed | run on the mock robot updates the view |
 | 8 | CI: GitHub Action running pytest and a simulation of the example protocol on Python 3.12 | unclaimed | green on `main` |
@@ -87,3 +87,9 @@ uv venv --python 3.12 .venv-ot && uv pip install --python .venv-ot/Scripts/pytho
 ```
 
 On Python 3.11 the second command fails on import with the TypedDict error above.
+
+## 8. Coordination notes (Saturday about 18:00 PDT)
+
+- **Two deck layouts.** The generator on `main` assumes single-nozzle mode (tips D1 to D3, row A empty, tube rack B1, assay B2, intermediate B3, medium C2). `medium_fill.py` and the physical deck use full-column mode (tips A1 and A2, reservoir B1, stock plate B2, PCR plate on a riser B3). Pick one layout for dosing and keep it in one deck map.
+- **Planner contract change pending on `steffi/plate-designer`.** Her branch (not merged) renames the medium source from `medium` to `reservoir`, adds an `edge` phase and reservoir wells, and repurposes the `MEDIUM` constant as a liquid name. The generator imports `MEDIUM` as a labware key, so it breaks after that merge (its tests should catch it). Her branch is also based on the code from before the web UI and still edits the deleted desktop GUI files, so merging `main` into it will conflict on `main.py` and `ui_helpers.py`.
+- **Filter tips.** The rack in A1 is loaded as `opentrons_flex_96_tiprack_1000ul`, but its label in the camera picture looked like a filter rack. Check it.
