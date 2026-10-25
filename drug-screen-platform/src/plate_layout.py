@@ -143,6 +143,8 @@ class PlateLayout:
         self.stocks: dict[str, StockSolution] = {}
         self.pipetting: dict[str, float] = {}
         self.reservoir = DEFAULT_RESERVOIR
+        # First unused tip per pipette, for tip racks that are already partly used.
+        self.starting_tips: dict[str, str] = {}
 
     @property
     def plate_format(self) -> PlateFormat:
@@ -323,6 +325,7 @@ class PlateLayout:
             "stocks": {drug: asdict(stock) for drug, stock in self.stocks.items()},
             "pipetting": dict(self.pipetting),
             "reservoir": self.reservoir,
+            "starting_tips": dict(self.starting_tips),
         }
 
     @classmethod
@@ -335,6 +338,7 @@ class PlateLayout:
             layout.stocks[drug] = StockSolution(**values)
         layout.pipetting = dict(data.get("pipetting", {}))
         layout.reservoir = data.get("reservoir", DEFAULT_RESERVOIR)
+        layout.starting_tips = dict(data.get("starting_tips", {}))
         return layout
 
     def save_json(self, path: Path) -> None:

@@ -33,6 +33,7 @@ from plate_layout import (  # noqa: E402
     PlateLayout, StockSolution, WellAssignment, from_nanomolar, to_nanomolar,
 )
 from reservoirs import DEFAULT_RESERVOIR, RESERVOIR_FORMATS, reservoir_from_display_name  # noqa: E402
+from tip_tracker import DEFAULT_PIPETTES, TipPlan, plan_tips, validate_starting_tip  # noqa: E402
 from ui_helpers import (  # noqa: E402
     ACCENT, ACCENT_HOVER, BG, BORDER, CARD, DRUG_PALETTE, EDGE_COLOR, EDGE_OUTLINE, EMPTY_WELL, EMPTY_WELL_OUTLINE,
     ERROR, FOOTER_COLOR, MUTED, ROW, ROW_HOVER, SUCCESS, TEXT, UNTREATED_COLOR, UNTREATED_OUTLINE, VEHICLE_COLOR, WARNING,
@@ -152,6 +153,7 @@ class ScreenDesignerApp:
         self.dead_volume_var = tk.StringVar()
         self.reservoir_dead_volume_var = tk.StringVar()
         self.reservoir_var = tk.StringVar(value=RESERVOIR_FORMATS[self.layout.reservoir].display_name)
+        self.starting_tip_vars = {setup.name: tk.StringVar(value="A1") for setup in DEFAULT_PIPETTES}
         self._set_pipetting_vars(PipettingSettings.from_dict(self.layout.pipetting))
         self.current_plan: Optional[DilutionPlan] = None
         self.plate_name_var.trace_add("write", self._on_plate_name_changed)
@@ -418,6 +420,12 @@ class ScreenDesignerApp:
             pipetting, self.reservoir_var, [r.display_name for r in RESERVOIR_FORMATS.values()],
             width=210, command=self._on_reservoir_selected,
         ).grid(row=len(fields), column=1, columnspan=2, sticky="w", pady=5)
+        for offset, setup in enumerate(DEFAULT_PIPETTES, start=len(fields) + 1):
+            self._field_label(pipetting, f"First tip {setup.name}", offset,
+                              f"First unused tip in the {setup.tip_rack} rack. Tips are taken down each "
+                              "column (A1, B1 … H1, A2). Change it when the rack is already partly used.")
+            self._entry(pipetting, self.starting_tip_vars[setup.name], width=80).grid(
+                row=offset, column=1, sticky="w", pady=5)
 
         self.stocks_body = self._section(left, "Stock solutions", "stock -> well")
 
@@ -461,7 +469,7 @@ class ScreenDesignerApp:
         ))
         self.transfer_tree = self._make_table(holder, "All transfers", (
             ("step", "#", 45), ("phase", "Phase", 75), ("source", "From", 170),
-            ("dest", "To", 150), ("volume", "µL", 70), ("liquid", "Liquid", 140),
+            ("dest", "To", 150), ("volume", "µL", 70), ("tip", "Tip", 130), ("liquid", "Liquid", 140),
         ))
         self._show_plan_view("Assay plate")
 
@@ -930,6 +938,18 @@ class ScreenDesignerApp:
         self.layout.pipetting = settings.to_dict()
         return settings
 
+    def _build_tip_plan(self, plan: DilutionPlan) -> Optional[TipPlan]:
+        starting_tips = {}
+        for name, variable in self.starting_tip_vars.items():
+            tip = variable.get().strip().upper() or "A1"
+            problem = validate_starting_tip(tip)
+            if problem:
+                self.flash(f"First tip {name}: {problem}", ERROR)
+                return None
+            starting_tips[name] = tip
+        self.layout.starting_tips = starting_tips
+        return plan_tips(plan, DEFAULT_PIPETTES, starting_tips)
+
     def _build_plan(self) -> Optional[DilutionPlan]:
         volume = self._read_well_volume()
         if volume is None or not self._read_stocks():
@@ -943,6 +963,9 @@ class ScreenDesignerApp:
         """Recompute the pipetting plan and fill the tables."""
         plan = self._build_plan()
         if plan is None:
+            return
+        tip_plan = self._build_tip_plan(plan)
+        if tip_plan is None:
             return
         self.current_plan = plan
         self._mark_dirty()
@@ -969,10 +992,11 @@ class ScreenDesignerApp:
                 item.well, item.label(), source, volume_text(item.source_volume_ul),
                 volume_text(item.medium_volume_ul), volume_text(item.total_volume_ul), "; ".join(item.warnings),
             ))
-        for transfer in plan.transfers:
+        for transfer, tip in zip(plan.transfers, tip_plan.uses):
             self.transfer_tree.insert("", "end", tags=("muted" if transfer.phase == "prepare" else "",), values=(
                 transfer.step, transfer.phase, f"{transfer.source_labware} {transfer.source_well}",
-                f"{transfer.dest_labware} {transfer.dest_well}", volume_text(transfer.volume_ul), transfer.liquid,
+                f"{transfer.dest_labware} {transfer.dest_well}", volume_text(transfer.volume_ul),
+                tip.label() + (f" ×{tip.trips}" if tip.trips > 1 else ""), transfer.liquid,
             ))
 
         for child in self.prep_body.winfo_children():
@@ -1000,6 +1024,13 @@ class ScreenDesignerApp:
                  "dead volume:")
             for item in plan.reservoir_wells:
                 line(f"   {item.well}: {format_number(item.fill_ul / 1000)} mL {item.liquid}")
+        for setup in tip_plan.pipettes:
+            used = tip_plan.tips_used(setup.name)
+            if used:
+                line(f"{setup.name} tips: {used} from {tip_plan.starting_tips[setup.name]}, "
+                     f"{tip_plan.racks_needed(setup.name)} rack(s) {setup.tip_rack}")
+        for warning in tip_plan.warnings:
+            line(warning, muted=True)
         line(f"{len(plan.transfers)} transfers in total. Add dead volume to source tubes.", muted=True)
 
         # Independent check: replay every transfer and compare each well with the layout.
@@ -1018,8 +1049,9 @@ class ScreenDesignerApp:
         if not quiet and not report.passed:
             self.flash("Simulation check failed — see Materials", ERROR)
         elif not quiet:
-            if warning_count or plan.warnings:
-                self.flash(f"Plan updated — {warning_count + len(plan.warnings)} warning(s)", WARNING)
+            total_warnings = warning_count + len(plan.warnings) + len(tip_plan.warnings)
+            if total_warnings:
+                self.flash(f"Plan updated — {total_warnings} warning(s)", WARNING)
             elif plan.needs_intermediate_plate:
                 self.flash(f"Plan updated — {len(plan.intermediates)} intermediate dilution(s) added", SUCCESS)
             else:
@@ -1113,9 +1145,12 @@ class ScreenDesignerApp:
         self.flash(f"Exported {Path(path).name}", SUCCESS)
 
     def export_worklist_csv(self) -> None:
-        """Export the ordered transfer list as CSV."""
+        """Export the ordered transfer list, with pipette and tip per step, as CSV."""
         plan = self._build_plan()
         if plan is None:
+            return
+        tip_plan = self._build_tip_plan(plan)
+        if tip_plan is None:
             return
         path = filedialog.asksaveasfilename(
             parent=self.root, title="Export transfers CSV", initialdir=self._initial_dir(),
@@ -1125,7 +1160,7 @@ class ScreenDesignerApp:
         if not path:
             return
         try:
-            export_transfers_csv(plan, Path(path))
+            export_transfers_csv(plan, Path(path), tip_plan)
         except OSError as error:
             messagebox.showerror("Export failed", str(error), parent=self.root)
             return
@@ -1145,6 +1180,8 @@ class ScreenDesignerApp:
             layout.reservoir = DEFAULT_RESERVOIR
             reservoir = RESERVOIR_FORMATS[layout.reservoir]
         self.reservoir_var.set(reservoir.display_name)
+        for name, variable in self.starting_tip_vars.items():
+            variable.set(layout.starting_tips.get(name, "A1"))
         self.canvas.set_plate_format(layout.plate_format)
         self._after_layout_change()
         if self.tabs.get() == "Stocks & worklist":

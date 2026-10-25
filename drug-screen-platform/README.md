@@ -31,6 +31,11 @@ Shares its look and core calculation code with the
 - **Reservoir**: medium for the intermediate plate and the edge-fill liquids come from a
   reservoir (default `opentrons_tough_12_reservoir_22ml`, any standard Opentrons reservoir
   selectable), one liquid per well; Materials lists how much to pour into each well
+- **Tip tracking**: every transfer gets a pipette (Flex P50 or P1000) and an exact tip
+  (rack and well, picked A1, B1 … H1, A2 like the Opentrons API). A tip is only reused for
+  the same reservoir liquid going into empty wells; everything that touches drug, solvent
+  or cells gets a fresh tip. Partly used racks: set the first free tip. The expected
+  empty tip positions after any step are available for a later camera check
 - **Transfer list**: every robot step in order (edge fill from the reservoir, medium into
   the intermediate plate, intermediate preparation, dosing of the assay plate),
   exportable as CSV for the Opentrons protocol
@@ -78,6 +83,7 @@ drug-screen-platform/
 │   ├── plate_layout.py    # layout model, dose series, JSON/CSV
 │   ├── dilution_planner.py # intermediate dilutions and ordered transfer list
 │   ├── reservoirs.py      # Opentrons reservoir labware (load names, wells, volumes)
+│   ├── tip_tracker.py     # pipette and tip per transfer, expected tip-rack state
 │   ├── plan_checker.py    # replays the transfers and checks every well
 │   ├── plate_canvas.py    # interactive plate widget
 │   ├── ui_helpers.py      # theme tokens and window helpers

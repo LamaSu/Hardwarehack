@@ -11,6 +11,7 @@ an end-to-end drug screening platform driving an Opentrons Flex.
   - `src/plate_layout.py` — layout model (wells → drug, concentration, role), JSON/CSV
   - `src/dilution_planner.py` — intermediate dilutions and the ordered transfer list
   - `src/reservoirs.py` — Opentrons reservoir labware for medium and edge-fill liquids
+  - `src/tip_tracker.py` — pipette and tip per transfer; expected tip-rack state after any step
   - `src/plan_checker.py` — replays the transfer list and checks every well (independent of the planner)
   - `scripts/verify_plan.py` — command-line check of a saved layout
   - `src/plate_canvas.py` — interactive plate widget

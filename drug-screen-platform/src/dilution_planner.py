@@ -10,7 +10,7 @@ assay plate) that a robot protocol can execute step by step.
 import csv
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from plate_formats import well_name, well_sort_key
 from plate_layout import (
@@ -18,6 +18,9 @@ from plate_layout import (
     PlateLayout, to_nanomolar,
 )
 from reservoirs import DEFAULT_RESERVOIR, RESERVOIR_FORMATS, ReservoirFormat
+
+if TYPE_CHECKING:
+    from tip_tracker import TipPlan
 
 INTERMEDIATE_ROWS = 8
 INTERMEDIATE_COLUMNS = 12
@@ -542,7 +545,7 @@ def plan_dilutions(
     )
 
 
-def export_transfers_csv(plan: DilutionPlan, path: Path) -> None:
+def export_transfers_csv(plan: DilutionPlan, path: Path, tip_plan: Optional["TipPlan"] = None) -> None:
     """
     Write the ordered transfer list as CSV (one row per robot transfer).
 
@@ -552,6 +555,9 @@ def export_transfers_csv(plan: DilutionPlan, path: Path) -> None:
         Plan from ``plan_dilutions``.
     path : Path
         Output file.
+    tip_plan : TipPlan, optional
+        Tip assignment from ``tip_tracker.plan_tips``; adds pipette and tip
+        columns.
 
     Raises
     ------
@@ -561,14 +567,21 @@ def export_transfers_csv(plan: DilutionPlan, path: Path) -> None:
     try:
         with open(path, "w", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle)
-            writer.writerow([
+            header = [
                 "step", "phase", "source_labware", "source_well",
                 "dest_labware", "dest_well", "volume_ul", "liquid",
-            ])
-            for t in plan.transfers:
-                writer.writerow([
+            ]
+            if tip_plan is not None:
+                header += ["pipette", "tip_rack", "tip_well", "new_tip", "trips"]
+            writer.writerow(header)
+            for index, t in enumerate(plan.transfers):
+                row = [
                     t.step, t.phase, t.source_labware, t.source_well,
                     t.dest_labware, t.dest_well, round(t.volume_ul, 3), t.liquid,
-                ])
+                ]
+                if tip_plan is not None:
+                    use = tip_plan.uses[index]
+                    row += [use.pipette, use.rack, use.tip, use.new_tip, use.trips]
+                writer.writerow(row)
     except OSError as error:
         raise OSError(f"Could not export transfers to {path}: {error}") from error
