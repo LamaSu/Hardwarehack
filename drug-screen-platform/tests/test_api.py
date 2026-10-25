@@ -103,6 +103,8 @@ def test_foreign_host_rejected(client):
     # Same attack through the Next.js proxy, which rewrites Host but forwards the original.
     assert client.get("/formats", headers={"X-Forwarded-Host": "evil.com:3000"}).status_code == 400
     assert client.get("/formats", headers={"X-Forwarded-Host": "127.0.0.1:3000"}).status_code == 200
+    # A proxy that appends instead of replacing must not let a spoofed first entry through.
+    assert client.get("/formats", headers={"X-Forwarded-Host": "localhost, evil.com:3000"}).status_code == 400
 
 
 def test_cross_site_post_rejected(client):

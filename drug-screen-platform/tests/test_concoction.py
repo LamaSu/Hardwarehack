@@ -30,6 +30,7 @@ def test_valid_order_has_no_problems():
     ([Recipe(13, [Ingredient(1, 10)])], "column 13 doesn't exist (1-12)"),
     ([Recipe(1, [Ingredient(13, 10)])], "column 1: trough 13 doesn't exist (1-12)"),
     ([Recipe(1, [])], "column 1 has no ingredients"),
+    ([Recipe(1, [Ingredient(1, float("nan"))])], "column 1: nan µL from trough 1 is not a volume"),
     ([Recipe(1, [Ingredient(1, 10)]), Recipe(1, [Ingredient(2, 10)])], "column 1 is ordered twice"),
 ])
 def test_rule_violations(recipes, problem):

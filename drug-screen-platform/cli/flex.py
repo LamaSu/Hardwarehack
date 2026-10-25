@@ -9,6 +9,7 @@
 Every command takes --host/--port (or FLEX_HOST/FLEX_PORT) and --mock.
 """
 
+import math
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Optional
@@ -193,6 +194,8 @@ def _parse_jog(text: str):
     try:
         distance = float(parts[1])
     except ValueError:
+        return None
+    if not math.isfinite(distance):  # nan would slip past the step limit
         return None
     axis, sign = JOG_AXES[parts[0]]
     return axis, sign * distance

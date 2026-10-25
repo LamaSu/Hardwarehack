@@ -97,8 +97,9 @@ def test_calibrate_abort_saves_nothing_but_cleans_up(runs, monkeypatch):
 def test_calibrate_rejects_bad_input_and_huge_steps(runs, monkeypatch):
     handler, commands, _ = _robot_recorder()
     monkeypatch.setattr("cli.flex._client", lambda *a: FlexClient("10.0.0.5", transport=httpx.MockTransport(handler)))
-    result = runner.invoke(flex_app, ["calibrate", "--host", "10.0.0.5"], input="down\nd 50\nd abc\nq\n")
+    result = runner.invoke(flex_app, ["calibrate", "--host", "10.0.0.5"], input="down\nd 50\nd abc\nd nan\nq\n")
     assert "Unknown" in result.output and "at most 20 mm" in result.output
+    assert result.output.count("Unknown") == 3
     assert not [p for k, p in commands if k == "moveRelative" and p["axis"] == "z" and p["distance"] < 0]
 
 

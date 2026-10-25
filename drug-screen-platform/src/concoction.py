@@ -9,6 +9,7 @@ filter tips (A2); larger draws use the 1000 µL tips (A1). After the last
 ingredient the same tip mixes the well.
 """
 
+import math
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Iterable, Optional
@@ -95,7 +96,10 @@ def validate_order(
         for ingredient in recipe.ingredients:
             if not 1 <= ingredient.trough <= TROUGHS:
                 problems.append(f"column {column}: trough {ingredient.trough} doesn't exist (1-{TROUGHS})")
-            if ingredient.volume_ul < MIN_VOLUME_UL:
+            if not math.isfinite(ingredient.volume_ul):
+                problems.append(f"column {column}: {ingredient.volume_ul:g} µL from trough {ingredient.trough} "
+                                "is not a volume")
+            elif ingredient.volume_ul < MIN_VOLUME_UL:
                 problems.append(f"column {column}: {ingredient.volume_ul:g} µL from trough {ingredient.trough} "
                                 f"is below the {MIN_VOLUME_UL:g} µL minimum")
         if recipe.total_ul > WELL_CAPACITY_UL:
