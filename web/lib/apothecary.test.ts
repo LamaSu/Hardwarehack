@@ -1,19 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { blend, formatVolume, orderable, total, type Trough } from "./apothecary";
-
-const troughs: Trough[] = [
-  { trough: 1, name: "Red", color: "#ff0000", volume_ul: null },
-  { trough: 2, name: "Blue", color: "#0000ff", volume_ul: null },
-];
+import { formatVolume, orderable, total } from "./apothecary";
 
 describe("apothecary helpers", () => {
   it("totals a recipe", () => {
     expect(total([{ trough: 1, volume_ul: 40 }, { trough: 2, volume_ul: 10 }])).toBe(50);
-  });
-  it("blends tints by volume", () => {
-    expect(blend([{ trough: 1, volume_ul: 50 }, { trough: 2, volume_ul: 50 }], troughs)).toBe("#800080");
-    expect(blend([{ trough: 1, volume_ul: 30 }], troughs)).toBe("#ff0000");
-    expect(blend([], troughs)).toBeNull();
   });
   it("keeps only recipes with ingredients, in column order", () => {
     const drafts = {
@@ -40,5 +30,28 @@ describe("default concoction names", () => {
       { column: 3, name: "Kingsfoil tonic", ingredients: [{ trough: 1, volume_ul: 10 }] },
     ]);
     expect(named.map((r) => r.name)).toEqual(["Batch 2 column 1", "Batch 2 column 2", "Kingsfoil tonic"]);
+  });
+});
+
+describe("pie slices for a well", () => {
+  it("split the circle by volume, in recipe order", async () => {
+    const { pieSlices } = await import("./apothecary");
+    const slices = pieSlices([{ trough: 5, volume_ul: 30 }, { trough: 1, volume_ul: 10 }]);
+    expect(slices.map((s) => s.trough)).toEqual([5, 1]);
+    expect(slices[0].start).toBeCloseTo(0);
+    expect(slices[0].end).toBeCloseTo(0.75);
+    expect(slices[1].start).toBeCloseTo(0.75);
+    expect(slices[1].end).toBeCloseTo(1);
+  });
+  it("merges repeated troughs and skips empty ones", async () => {
+    const { pieSlices } = await import("./apothecary");
+    const slices = pieSlices([{ trough: 2, volume_ul: 10 }, { trough: 3, volume_ul: 0 }, { trough: 2, volume_ul: 10 }]);
+    expect(slices).toEqual([{ trough: 2, start: 0, end: 1 }]);
+    expect(pieSlices([])).toEqual([]);
+  });
+  it("draws a slice as an SVG path from 12 o'clock, clockwise", async () => {
+    const { slicePath } = await import("./apothecary");
+    // a quarter slice of a radius-10 circle at (0, 0): from the top to the right
+    expect(slicePath(0, 0, 10, 0, 0.25)).toBe("M0 0 L0 -10 A10 10 0 0 1 10 0 Z");
   });
 });

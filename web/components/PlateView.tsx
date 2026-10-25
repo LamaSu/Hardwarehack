@@ -1,7 +1,7 @@
 "use client";
 // The Armadillo 96-well PCR plate, top down. One recipe per column (wells A-H), because the
 // 8-channel fills a whole column at once. Under each column, its recipe drawn to scale.
-import { blend, COLUMNS, total, WELL_CAPACITY_UL, type Ingredient, type Recipe, type Trough } from "@/lib/apothecary";
+import { COLUMNS, pieSlices, slicePath, total, WELL_CAPACITY_UL, type Ingredient, type Recipe, type Trough } from "@/lib/apothecary";
 
 const ROWS = "ABCDEFGH";
 const PITCH = 46;
@@ -41,7 +41,7 @@ export default function PlateView({ troughs, drafts, brewed, selected, justBrewe
         const done = brewed[String(column)];
         const ingredients = done?.ingredients ?? drafts[column]?.ingredients ?? [];
         const volume = total(ingredients);
-        const colour = blend(ingredients, troughs);
+        const slices = pieSlices(ingredients);
         const x = PAD_X + c * PITCH + PITCH / 2;
         const isSelected = column === selected;
         const flashIndex = justBrewed.indexOf(column);
@@ -60,11 +60,18 @@ export default function PlateView({ troughs, drafts, brewed, selected, justBrewe
               return (
                 <g key={row}>
                   <circle cx={x} cy={y} r={WELL_R} fill="var(--color-well)" stroke="var(--color-mithril)" strokeWidth={1.5} />
-                  {colour && (
-                    <circle cx={x} cy={y} r={4 + (WELL_R - 5) * Math.sqrt(fill)} fill={colour}
-                            fillOpacity={done ? 1 : 0.8}
-                            className={flashIndex >= 0 ? "brew-flash" : undefined}
-                            style={flashIndex >= 0 ? { animationDelay: `${flashIndex * 140}ms` } : undefined} />
+                  {slices.length > 0 && (
+                    // The well's contents as a pie: one slice per trough, sized by volume; the pie
+                    // itself grows with how full the well is.
+                    <g fillOpacity={done ? 1 : 0.85} className={flashIndex >= 0 ? "brew-flash" : undefined}
+                       style={flashIndex >= 0 ? { animationDelay: `${flashIndex * 140}ms` } : undefined}>
+                      {slices.length === 1
+                        ? <circle cx={x} cy={y} r={4 + (WELL_R - 5) * Math.sqrt(fill)} fill={tint(slices[0].trough)} />
+                        : slices.map((slice) => (
+                            <path key={slice.trough} d={slicePath(x, y, 4 + (WELL_R - 5) * Math.sqrt(fill), slice.start, slice.end)}
+                                  fill={tint(slice.trough)} stroke="var(--color-well)" strokeWidth={0.75} />
+                          ))}
+                    </g>
                   )}
                 </g>
               );

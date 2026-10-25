@@ -23,7 +23,7 @@ export default function OrderPanel(p: Props) {
   const tipsLine = (label: string, need: number, left: number) => (
     <div className="flex justify-between text-sm">
       <span>{label}</span>
-      <span className={need > left ? "text-alert" : "text-ink-soft"}>{need} of {left} columns left</span>
+      <span className={need > left ? "text-alert" : "text-ink-soft"}>{need} needed, {left} left</span>
     </div>
   );
   return (

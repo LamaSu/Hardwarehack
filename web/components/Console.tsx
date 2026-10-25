@@ -168,10 +168,14 @@ export default function Console() {
                          justBrewed={justBrewed} onSelect={setSelected} />
             </div>
           </section>
-          <div className="flex min-h-0 flex-col gap-4 lg:overflow-y-auto lg:pr-1">
-            <RecipeEditor column={selected} plate={plate} recipe={recipeFor(selected)} brewed={state.columns[String(selected)]}
-                          troughs={state.troughs} onChange={(recipe) => editDrafts({ ...drafts, [selected]: recipe })} />
-            <div className="border-t border-mithril pt-3">
+          {/* Right panel runs to the bottom of the screen: recipe on top (scrolls if long),
+              the order and Brew button pinned to the bottom. */}
+          <div className="flex min-h-0 flex-col rounded-lg border border-mithril bg-surface lg:h-full">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <RecipeEditor column={selected} plate={plate} recipe={recipeFor(selected)} brewed={state.columns[String(selected)]}
+                            troughs={state.troughs} onChange={(recipe) => editDrafts({ ...drafts, [selected]: recipe })} />
+            </div>
+            <div className="shrink-0 border-t border-mithril p-3">
               <OrderPanel recipes={recipes} plan={currentPlan} planning={planning} state={state} brewing={brewing} run={run}
                           onBrew={brew}
                           onRunAction={async (action) => {

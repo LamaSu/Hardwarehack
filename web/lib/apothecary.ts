@@ -28,23 +28,6 @@ export const total = (ingredients: Ingredient[]) => ingredients.reduce((sum, i) 
 export const orderable = (drafts: Record<number, Recipe>) =>
   Object.values(drafts).filter((r) => r.ingredients.length > 0).sort((a, b) => a.column - b.column);
 
-function hexToRgb(hex: string): [number, number, number] {
-  const n = parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-/** Colour of the mixed liquid: the trough tints averaged by volume. */
-export function blend(ingredients: Ingredient[], troughs: Trough[]): string | null {
-  const sum = total(ingredients);
-  if (sum <= 0) return null;
-  const rgb = [0, 0, 0];
-  for (const i of ingredients) {
-    const tint = troughs.find((t) => t.trough === i.trough)?.color ?? "#999999";
-    hexToRgb(tint).forEach((v, k) => (rgb[k] += (v * i.volume_ul) / sum));
-  }
-  return `#${rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
-}
-
 /** µL as a short readable string: 1250 -> "1.25 mL", 40 -> "40 µL". */
 export function formatVolume(ul: number | null | undefined): string {
   if (ul === null || ul === undefined) return "not set";
@@ -57,3 +40,27 @@ export const defaultName = (plate: string, column: number) => `${plate} column $
 /** Recipes as sent to the API: unnamed ones carry their default name. */
 export const withDefaultNames = (plate: string, recipes: Recipe[]) =>
   recipes.map((r) => (r.name.trim() ? r : { ...r, name: defaultName(plate, r.column) }));
+
+export interface Slice { trough: number; start: number; end: number }
+
+/** The well's contents as pie slices (fractions 0-1 of the circle), one per trough, in recipe order. */
+export function pieSlices(ingredients: Ingredient[]): Slice[] {
+  const byTrough = new Map<number, number>();
+  for (const i of ingredients) if (i.volume_ul > 0) byTrough.set(i.trough, (byTrough.get(i.trough) ?? 0) + i.volume_ul);
+  const sum = [...byTrough.values()].reduce((a, b) => a + b, 0);
+  let start = 0;
+  return [...byTrough].map(([trough, volume]) => {
+    const slice = { trough, start, end: start + volume / sum };
+    start = slice.end;
+    return slice;
+  });
+}
+
+const fmt = (v: number) => `${Number(v.toFixed(3))}`;
+
+/** SVG path of one slice, starting at 12 o'clock and going clockwise. */
+export function slicePath(cx: number, cy: number, r: number, start: number, end: number): string {
+  const point = (t: number) => [cx + r * Math.sin(2 * Math.PI * t), cy - r * Math.cos(2 * Math.PI * t)].map(fmt).join(" ");
+  const large = end - start > 0.5 ? 1 : 0;
+  return `M${fmt(cx)} ${fmt(cy)} L${point(start)} A${fmt(r)} ${fmt(r)} 0 ${large} 1 ${point(end)} Z`;
+}
