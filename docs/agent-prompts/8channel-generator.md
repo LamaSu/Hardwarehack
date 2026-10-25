@@ -21,7 +21,7 @@ git checkout origin/lamasu/goals-and-plan -- docs/agent-prompts docs/opentrons-i
 
 ## 1. Situation
 
-- Robot: Opentrons Flex, robot software 10.1.0, ours alone for the weekend. Hardware we know: a plate gripper and **one 8-channel 1000 µL pipette** (which mount is unknown, assume right, keep it a constant). Unknown: a second pipette, a working camera, modules, the real deck contents.
+- Robot: Opentrons Flex, robot software 10.1.0, ours alone for the weekend. Checked on the robot (see [docs/robot-check-2026-10-24.md](docs/robot-check-2026-10-24.md)): a plate gripper and **one 8-channel 1000 µL pipette on the LEFT mount**, no second pipette, no modules, a working camera, a trash bin in A3, no staging slots, reads need no login. On the deck: probably 1000 µL filter tips in A1 and 50 µL filter tips in A2, one clear plate in each of B1 to B3 (types unknown), everything else empty. Use the filter-tip load names if the boxes say filter.
 - Flex 8-Channel 1000 µL pipette: **5 to 1000 µL**, tips 50, 200 or 1000 µL. The 1 µL minimum in the planner belongs to the 50 µL pipettes. Our minimum transfer is **5 µL**.
 - Protocol API goes up to 2.30. Instrument load name: `flex_8channel_1000`.
 - `opentrons==10.1.0` only imports on Python 3.12 or newer (3.11 fails with a pydantic TypedDict error). The project already requires 3.12.
@@ -42,7 +42,7 @@ git checkout origin/lamasu/goals-and-plan -- docs/agent-prompts docs/opentrons-i
 So: do not use SINGLE-nozzle mode. Use whole columns. This pattern is verified to simulate:
 
 ```python
-pipette = protocol.load_instrument("flex_8channel_1000", "right", tip_racks=[tips])
+pipette = protocol.load_instrument("flex_8channel_1000", "left", tip_racks=[tips])
 pipette.pick_up_tip()                      # takes a column of 8 tips
 pipette.aspirate(95, medium["A1"])         # trough well: 8 tips share it
 pipette.dispense(95, intermediate["A1"])   # "A1" addresses the whole column A to H
@@ -61,7 +61,7 @@ Deck used in that run: trash bin A3, tips B3 and A2 (`opentrons_flex_96_tiprack_
 
 ### P0. Generator: 8-channel column batches (the main task)
 
-1. Pipette constants at the top of the generated protocol: `("flex_8channel_1000", "right")`, tip rack load name, flow rates, mix policy, `USE_GRIPPER`, `USE_CAMERA`. One deck map (a small module or dict) is the single source of truth for the generator, the materials list and the API response. No `flex_1channel_*`, no `configure_for_volume`, no `configure_nozzle_layout`.
+1. Pipette constants at the top of the generated protocol: `("flex_8channel_1000", "left")`, tip rack load name, flow rates, mix policy, `USE_GRIPPER`, `USE_CAMERA`. One deck map (a small module or dict) is the single source of truth for the generator, the materials list and the API response. No `flex_1channel_*`, no `configure_for_volume`, no `configure_nozzle_layout`.
 2. Labware roles: `stock` becomes a **96-well plate** (default `nest_96_wellplate_2ml_deep`, configurable), `intermediate` stays `nest_96_wellplate_2ml_deep`, `assay` is the layout's labware, `medium` is `nest_12_reservoir_15ml` (or the 195 mL one) with the 8 tips in well `A1`. Stock tubes and the 24-tube rack go away.
 3. Stock mapping: compound `k` sits in the stock plate row that matches the intermediate-plate row of its first intermediate, in column 1. Print this map as a comment block at the top (like the tube map today) and return it from the API so the person loading the plate sees it.
 4. **Batching.** The planner emits per-well transfers. Group them into column batches. A batch is 8 transfers that have the same `phase`, `source_labware`, `dest_labware`, a volume equal after rounding to 0.001 µL, sources that are rows A to H of one column (or the single medium trough well) and destinations that are rows A to H of one column, in the same row order. Emit `pick_up_tip`, `aspirate(v, source["A<col>"])`, `dispense(v, dest["A<col>"])`, optional mix, `drop_tip` per batch.
@@ -131,9 +131,8 @@ SINGLE or PARTIAL_COLUMN nozzle modes, 384-well plates, image analysis, LIMS, th
 
 ## 7. Open questions (ask ebrinz or LamaSu, do not guess)
 
-- Real deck contents: tip rack sizes, which plate holds the stocks, medium reservoir type, second pipette, modules.
-- Which mount the 8-channel is on.
-- Does the robot have a camera? Does `GET /protocols` need a login?
+- Real deck contents: the exact tip racks (filter or not, sizes), which plate holds the stocks, the medium reservoir type. The robot check shows no second pipette and no modules.
+- Do writes (upload, create run, play) need a login? Reads do not.
 - Assay pre-fill by hand or by the robot?
 - How many compounds and doses will the demo use?
 

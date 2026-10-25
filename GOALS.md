@@ -27,7 +27,7 @@ Track B brief on the event page: "Build and test new liquid-handling workflows o
 | 8-channel layouts | Full column (default), SINGLE (start A1 or H1) and PARTIAL_COLUMN (start H1, 2 to 7 tips). The last two need API 2.20. Pass `tip_racks` on every `configure_nozzle_layout()` call. | [partial tip pickup](https://docs.opentrons.com/v2/pipettes/partial_tip_pickup.html) |
 | CSV parameter | `parameters.add_csv_file(...)` from API 2.20. One CSV per run, picked at run setup in the Opentrons App or from a USB drive on the touchscreen. | [parameters](https://docs.opentrons.com/v2/parameters/defining.html) |
 | Gripper | `move_labware(..., use_gripper=True)` since API 2.15. | versioning page |
-| Robot login | 10.x adds user accounts, login tokens, roles and audit logs. We have not tested whether it is switched on for our robot. | release notes v10.0.0 and v10.1.0 |
+| Robot login | 10.x adds user accounts, login tokens, roles and audit logs. Reads on our robot work without a token; writes are untested. | release notes v10.0.0 and v10.1.0 |
 | Planner | Drug Screen Designer, now on `main` in `drug-screen-platform/` (merged 15:46 PDT): plate layouts, dose series, C1·V1=C2·V2, automatic intermediate dilutions, an ordered transfer list (CSV) and an independent plan checker. On `main`: Python 3.11, uv, CustomTkinter desktop app. On branch `ebrinz` (not merged yet): Python 3.12, FastAPI backend, Next.js web UI, `plate` and `flex` CLIs, a Flex protocol generator and a robot client. | this repo |
 
 ## Scope
@@ -125,6 +125,7 @@ Every load name above exists in the Opentrons labware library.
 
 ### G3. Robot bring-up and runs
 - Status: `flex health`, `flex run` and `flex demo` exist on branch `ebrinz` (with `--mock`), untested on the real robot. Add token support if the robot requires a login.
+- Done (17:30 PDT): the robot is reachable over Wi-Fi from LamaSu's laptop, reads need no login, the camera works. See [docs/robot-check-2026-10-24.md](docs/robot-check-2026-10-24.md).
 - Reachability over Wi-Fi: read the Flex's IP off the touchscreen, then `curl -s -H "Opentrons-Version: *" http://<FLEX_IP>:31950/health` (expect `api_version` 10.1.0) and the same for `/protocols` (200 means open, 401 or 403 means a login is required). Do not paste the IP or serial number into this repo.
 - If the venue network blocks it: phone hotspot or travel router, an Ethernet cable, USB-B to the laptop with the Opentrons App, or a USB stick into the touchscreen.
 - Labware position check, gripper test, tip pickup with the 8-channel, then a water dry run, then a dye run.
@@ -236,9 +237,9 @@ About 9 hours of robot time remain on Saturday evening and 6.5 on Sunday morning
 |---|---|---|
 | Q1 | Timing and rules | Schedule known. Prizes, judging criteria, demo length and any rule on pre-existing code or AI use are not stated on the Luma pages. |
 | Q2 | Robot | Answered: Flex, exclusive use. |
-| Q3 | Deck | Gripper and 8-channel 1000 µL known. Second pipette, tip racks, plates, tube racks, reservoirs and modules unknown. |
+| Q3 | Deck | Checked on the robot ([docs/robot-check-2026-10-24.md](docs/robot-check-2026-10-24.md)): 8-channel 1000 µL on the left mount, gripper, no second pipette, no modules, trash bin in A3, no staging slots. Camera pictures show tip racks in A1 and A2, clear plates in B1 to B3, everything else empty. Exact labware and tip types still need a person to confirm. |
 | Q4 | Control path | Default: Opentrons App first, CLI-driven runs as a stretch. |
-| Q5 | Connectivity | Wi-Fi. Reachability and robot login untested. Does `pip install opentrons==10.1.0` work on each laptop? Unknown. |
+| Q5 | Connectivity | Wi-Fi. The robot is reachable from LamaSu's laptop and reads need no login (writes untested). `opentrons==10.1.0` installs fine but only imports on Python 3.12 or newer. |
 | Q6 | Samples | Unanswered. Default: dye stand-ins. |
 | Q7 | Source and destination | Unanswered. Suggested: stock plate with compounds in column 1 rows A to H, 2 mL deep-well intermediate plate, 96-well flat assay plate. |
 | Q8 | Targets and wells | Answered by the planner: select wells in the GUI, dose series, per-well targets. |
