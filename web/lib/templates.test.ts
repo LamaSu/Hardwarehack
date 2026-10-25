@@ -7,6 +7,16 @@ describe("order templates", () => {
     expect(TEMPLATES.find((t) => t.id === DEFAULT_TEMPLATE_ID)?.name).toBe("Single-agent panel");
   });
 
+  it("control with the DMSO vehicle, not plain saline", () => {
+    for (const template of TEMPLATES) {
+      for (const control of template.recipes.filter((r) => /control/i.test(r.name))) {
+        expect(control.name).toBe("DMSO vehicle control");
+        expect(control.ingredients.some((i) => i.trough === 11)).toBe(true);  // 11 = DMSO vehicle
+      }
+    }
+    expect(TEMPLATES.find((t) => t.id === "dox-dose")!.recipes.at(-1)!.name).toBe("DMSO vehicle control");
+  });
+
   it("are oncology panels", () => {
     expect(TEMPLATES.map((t) => t.name)).toEqual(["Single-agent panel", "Combination regimens", "Doxorubicin dose response"]);
   });

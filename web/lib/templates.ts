@@ -21,7 +21,7 @@ export const TEMPLATES: Template[] = [
     r(3, "Cisplatin in saline", [8, 25], [1, 75]),
     r(4, "5-Fluorouracil in saline", [7, 30], [1, 70]),
     r(5, "Methotrexate in PBS", [2, 15], [10, 85]),
-    r(6, "Vehicle control (DMSO)", [11, 5], [1, 95]),
+    r(6, "DMSO vehicle control", [11, 5], [1, 95]),
   ] },
   { id: "combos", name: "Combination regimens", recipes: [
     r(1, "Paclitaxel + carboplatin", [5, 15], [12, 15], [3, 70]),
@@ -34,7 +34,7 @@ export const TEMPLATES: Template[] = [
     r(2, "Doxorubicin 1:4", [4, 25], [1, 75]),
     r(3, "Doxorubicin 1:8", [4, 12.5], [1, 87.5]),
     r(4, "Doxorubicin 1:16", [4, 6.25], [1, 93.75]),
-    r(5, "Saline control", [1, 100]),
+    r(5, "DMSO vehicle control", [11, 5], [1, 95]),
   ] },
 ];
 
