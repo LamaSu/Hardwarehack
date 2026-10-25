@@ -23,6 +23,8 @@ TIPS_50_FILTER = ("opentrons_flex_96_filtertiprack_50ul", "A2")
 RESERVOIR = ("nest_12_reservoir_15ml", "B1")
 STOCK_PLATE = ("nest_96_wellplate_2ml_deep", "B2")
 PCR_PLATE = ("biorad_384_wellplate_50ul", "B3")
+PCR_PLATE_URI = "opentrons/biorad_384_wellplate_50ul/4"  # version loaded at apiLevel 2.30
+TIPS_50_FILTER_VERSION = 1
 TRASH_SLOT = "A3"
 MEDIUM_TROUGH = "A1"
 

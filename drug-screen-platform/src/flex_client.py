@@ -74,10 +74,35 @@ class FlexClient:
         response = self._request("POST", "/protocols", files={"files": (path.name, content, "text/x-python")})
         return response.json()["data"]["id"]
 
-    def create_run(self, protocol_id: str) -> str:
-        """Create a run for an uploaded protocol and return the run id."""
-        response = self._request("POST", "/runs", json={"data": {"protocolId": protocol_id}})
+    def create_run(self, protocol_id: str, labware_offsets: Optional[list[dict]] = None) -> str:
+        """Create a run for an uploaded protocol (with optional labware offsets) and return its id."""
+        data: dict = {"protocolId": protocol_id}
+        if labware_offsets:
+            data["labwareOffsets"] = labware_offsets
+        response = self._request("POST", "/runs", json={"data": data})
         return response.json()["data"]["id"]
+
+    def start_maintenance(self) -> str:
+        """Open a maintenance run (manual control, used for calibration) and return its id."""
+        return self._request("POST", "/maintenance_runs", json={"data": {}}).json()["data"]["id"]
+
+    def maintenance_command(self, run_id: str, command_type: str, params: dict) -> dict:
+        """Run one command in a maintenance run, wait for it, and return its result."""
+        response = self._request(
+            "POST", f"/maintenance_runs/{run_id}/commands",
+            params={"waitUntilComplete": "true", "timeout": "120000"},
+            json={"data": {"commandType": command_type, "params": params, "intent": "setup"}},
+            timeout=150,
+        )
+        data = response.json()["data"]
+        if data.get("status") == "failed":
+            error = data.get("error") or {}
+            raise FlexError(f"{command_type} failed: {error.get('detail') or error}")
+        return data.get("result") or {}
+
+    def end_maintenance(self, run_id: str) -> None:
+        """Close a maintenance run."""
+        self._request("DELETE", f"/maintenance_runs/{run_id}")
 
     def action(self, run_id: str, action: RunAction) -> None:
         """Play, pause or stop a run."""
@@ -135,7 +160,7 @@ class MockFlexClient:
     def upload_protocol(self, path: Path) -> str:
         return "mock-protocol"
 
-    def create_run(self, protocol_id: str) -> str:
+    def create_run(self, protocol_id: str, labware_offsets: Optional[list[dict]] = None) -> str:
         return "mock-run"
 
     def action(self, run_id: str, action: RunAction) -> None:

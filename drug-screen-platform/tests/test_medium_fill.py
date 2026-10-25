@@ -47,8 +47,15 @@ def test_volume_limits():
         protocol_source(position=1, volume_ul=2)
 
 
-def test_fill_command_tracks_next_position(tmp_path, monkeypatch):
+def _calibrated(tmp_path, monkeypatch):
+    import labware_offsets
+
     monkeypatch.setattr("run_store.RUNS_DIR", tmp_path)
+    labware_offsets.save_offset("opentrons/biorad_384_wellplate_50ul/4", "B3", {"x": 0, "y": 0, "z": 40})
+
+
+def test_fill_command_tracks_next_position(tmp_path, monkeypatch):
+    _calibrated(tmp_path, monkeypatch)
     for expected_well, expected_tips in (("A1", 1), ("B1", 2)):
         result = runner.invoke(flex_app, ["fill", "--plate", "Medium test", "--mock", "--yes"])
         assert result.exit_code == 0, result.output
@@ -61,7 +68,7 @@ def test_fill_command_tracks_next_position(tmp_path, monkeypatch):
 
 
 def test_fill_command_refuses_when_plate_full(tmp_path, monkeypatch):
-    monkeypatch.setattr("run_store.RUNS_DIR", tmp_path)
+    _calibrated(tmp_path, monkeypatch)
     folder = tmp_path / "full"
     folder.mkdir()
     (folder / "fills.json").write_text(json.dumps([{"position": p} for p in range(1, 49)]))
