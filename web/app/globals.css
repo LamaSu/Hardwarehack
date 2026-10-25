@@ -52,3 +52,72 @@ html { color-scheme: dark; }
 /* Plate columns: no browser ring on click; a leaf ring on the column band for keyboard focus. */
 .plate-column:focus { outline: none; }
 .plate-column:focus-visible .column-band { stroke: var(--color-leaf); stroke-width: 3; }
+
+/* ---- Header magic: one quiet, continuous moment in the brand area ---- */
+
+/* Wordmark: a band of pale light sweeps across the inscription, then rests. */
+.wordmark {
+  /* silver inscription; the band of light is warm white with a hint of leaf */
+  background: linear-gradient(100deg, #c3cecb 0%, #c3cecb 40%, #fffaf0 47%, #ffe39a 50%, #d8f2e4 54%, #c3cecb 61%, #c3cecb 100%);
+  background-size: 260% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: wordmark-shimmer 8s ease-in-out 1.2s infinite;
+}
+@keyframes wordmark-shimmer {
+  0% { background-position: 100% 0; }
+  28%, 100% { background-position: 0% 0; }
+}
+
+/* Staff lamp: breathes, and flares while the mark is hovered. */
+.staff-glow { animation: staff-breathe 2.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes staff-breathe {
+  0%, 100% { opacity: 0.75; filter: drop-shadow(0 0 0.6px #ffcf5c); }
+  50% { opacity: 1; filter: drop-shadow(0 0 1.6px #ffd978); }
+}
+.brand-mark:hover .staff-glow { animation-duration: 0.9s; filter: drop-shadow(0 0 2.4px #ffe39a); }
+
+/* Sparkles: tiny four-point stars that twinkle and drift up around the wizard. */
+.sparkle {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: #fff1c2;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+  pointer-events: none;
+  animation: sparkle-twinkle 3.6s ease-in-out infinite;
+}
+@keyframes sparkle-twinkle {
+  0%, 62%, 100% { opacity: 0; transform: translateY(2px) scale(0.4) rotate(0deg); }
+  72% { opacity: 1; transform: translateY(-2px) scale(1) rotate(25deg); }
+  86% { opacity: 0.4; transform: translateY(-6px) scale(0.6) rotate(45deg); }
+}
+
+/* Elven-light rule under the header: a faint gleam travels along it now and then. */
+.header-rule { position: relative; }
+.header-rule::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 1px;
+  width: 18%;
+  background: linear-gradient(90deg, transparent, rgba(224, 176, 74, 0.85), rgba(207, 233, 220, 0.6), transparent);
+  animation: rule-gleam 9s ease-in-out 2s infinite;
+  opacity: 0;
+}
+@keyframes rule-gleam {
+  0% { transform: translateX(-20%); opacity: 0; }
+  6% { opacity: 1; }
+  40% { transform: translateX(560%); opacity: 1; }
+  46%, 100% { transform: translateX(560%); opacity: 0; }
+}
+
+/* Reduced motion: the looping header effects stop entirely (a near-zero duration
+   on an infinite loop would flicker); the wordmark rests as silver, sparkles hidden. */
+@media (prefers-reduced-motion: reduce) {
+  .wordmark, .staff-glow, .sparkle, .header-rule::after { animation: none !important; }
+}

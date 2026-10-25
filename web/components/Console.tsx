@@ -171,10 +171,19 @@ export default function Console() {
     // Desktop: exactly one screen, no page scroll; panels scroll inside if a screen is short.
     // Below lg the panels stack and the page scrolls normally.
     <div className="mx-auto flex min-h-screen max-w-[1920px] flex-col px-4 lg:h-screen lg:overflow-hidden lg:px-6">
-      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-mithril py-2.5">
-        <WizardMark size={28} />
+      <header className="header-rule flex shrink-0 flex-wrap items-center gap-3 border-b border-mithril py-2.5">
+        <div className="brand-mark relative">
+          <WizardMark size={28} />
+          {/* a few sparkles around the wizard, twinkling at staggered times */}
+          {[
+            { left: -6, top: 2, delay: "0s" }, { left: 26, top: -4, delay: "1.3s" },
+            { left: 30, top: 18, delay: "2.4s" }, { left: -4, top: 22, delay: "3.1s" },
+          ].map((s, i) => (
+            <span key={i} className="sparkle" style={{ left: s.left, top: s.top, animationDelay: s.delay }} aria-hidden="true" />
+          ))}
+        </div>
         <div className="mr-auto">
-          <div className="font-[family-name:var(--font-display)] text-xl leading-none">Athelas Apothecary</div>
+          <div className="wordmark font-[family-name:var(--font-display)] text-xl leading-none">Athelas Apothecary</div>
           <div className="text-xs text-ink-soft">Concoctions on demand, mixed by an Opentrons Flex</div>
         </div>
         <label className="flex items-center gap-2 text-sm text-ink-soft">
