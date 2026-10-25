@@ -18,7 +18,7 @@ export default function RecipeEditor({ column, recipe, brewed, troughs, onChange
     return (
       <section aria-labelledby="recipe-title">
         <h2 id="recipe-title" className="section-title">Column {column}: {brewed.name || "unnamed concoction"}</h2>
-        <p className="mb-3 text-sm text-ink-soft">Brewed {brewed.brewed.replace("T", " at ")}. This column is done; start a new plate to use it again.</p>
+        <p className="mb-2 text-xs text-ink-soft">Brewed {brewed.brewed.replace("T", " at ")}. This column is done; start a new plate to use it again.</p>
         <ul className="flex flex-col gap-1 text-sm">
           {brewed.ingredients.map((i, k) => (
             <li key={k} className="flex items-center gap-2">
@@ -39,17 +39,17 @@ export default function RecipeEditor({ column, recipe, brewed, troughs, onChange
   return (
     <section aria-labelledby="recipe-title">
       <h2 id="recipe-title" className="section-title">Column {column}</h2>
-      <p className="mb-3 text-sm text-ink-soft">Every well in the column, A to H, gets this recipe. At least {MIN_DRAW_UL} µL per ingredient; a fresh tip for each.</p>
-      <input className="field mb-3" placeholder="Name this concoction" maxLength={80} value={recipe.name}
+      <p className="mb-2 text-xs text-ink-soft">Wells A to H all get this recipe. At least {MIN_DRAW_UL} µL per ingredient, a fresh tip for each.</p>
+      <input className="field mb-2" placeholder="Name this concoction" maxLength={80} value={recipe.name}
              aria-label="Concoction name" onChange={(e) => onChange({ ...recipe, name: e.target.value })} />
       {recipe.ingredients.length === 0 ? (
-        <p className="rounded-md border border-dashed border-mithril px-3 py-4 text-sm text-ink-soft">
+        <p className="rounded-md border border-dashed border-mithril px-3 py-3 text-xs text-ink-soft">
           No ingredients yet. Use Add next to a trough, or add one here.
         </p>
       ) : (
-        <ol className="flex flex-col gap-2">
+        <ol className="flex flex-col gap-1.5">
           {recipe.ingredients.map((ing, k) => (
-            <li key={k} className="grid grid-cols-[auto_1fr_6.5rem_auto] items-center gap-2">
+            <li key={k} className="grid grid-cols-[auto_1fr_5.5rem_auto] items-center gap-1.5">
               <span className="size-3 rounded-full" style={{ background: tint(ing.trough) }} />
               <select className="field" value={ing.trough} aria-label={`Ingredient ${k + 1} trough`}
                       onChange={(e) => update(k, { trough: Number(e.target.value) })}>
@@ -67,14 +67,14 @@ export default function RecipeEditor({ column, recipe, brewed, troughs, onChange
           ))}
         </ol>
       )}
-      <div className="mt-3 flex items-center gap-3">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         <button className="btn" onClick={() => onChange({ ...recipe, ingredients: [...recipe.ingredients, { trough: 1, volume_ul: 10 }] })}>
           Add ingredient
         </button>
         {recipe.ingredients.length > 0 && (
           <button className="btn btn-quiet" onClick={() => onChange({ ...recipe, ingredients: [] })}>Clear column</button>
         )}
-        <div className="ml-auto w-48">
+        <div className="ml-auto w-36">
           <div className="h-2 overflow-hidden rounded-full bg-mithril-soft" role="meter" aria-valuemin={0}
                aria-valuemax={WELL_CAPACITY_UL} aria-valuenow={sum} aria-label="Volume per well">
             <div className={`h-full ${over ? "bg-alert" : "bg-leaf"}`} style={{ width: `${Math.min(sum / WELL_CAPACITY_UL, 1) * 100}%` }} />

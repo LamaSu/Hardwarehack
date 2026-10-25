@@ -119,31 +119,35 @@ export default function Console() {
   };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-[1400px] flex-col px-4 sm:px-8">
-      <header className="flex flex-wrap items-center gap-4 border-b border-mithril py-4">
-        <WizardMark size={36} />
+    // Desktop: exactly one screen, no page scroll; panels scroll inside if a screen is short.
+    // Below lg the panels stack and the page scrolls normally.
+    <div className="mx-auto flex min-h-screen max-w-[1920px] flex-col px-4 lg:h-screen lg:overflow-hidden lg:px-6">
+      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-mithril py-2.5">
+        <WizardMark size={28} />
         <div className="mr-auto">
-          <div className="font-[family-name:var(--font-display)] text-2xl leading-none">Athelas Apothecary</div>
-          <div className="text-sm text-ink-soft">Concoctions on demand, mixed by an Opentrons Flex</div>
+          <div className="font-[family-name:var(--font-display)] text-xl leading-none">Athelas Apothecary</div>
+          <div className="text-xs text-ink-soft">Concoctions on demand, mixed by an Opentrons Flex</div>
         </div>
         <label className="flex items-center gap-2 text-sm text-ink-soft">
           Plate
-          <input className="field w-40" value={plate} maxLength={80} aria-label="Plate name"
+          <input className="field w-36" value={plate} maxLength={80} aria-label="Plate name"
                  onChange={(e) => changePlate(e.target.value || "Batch 1")} />
         </label>
         <RobotControl onChange={load} />
       </header>
 
       {message && (
-        <p role="status" className={`mt-4 rounded-md px-3 py-2 text-sm ${message.bad ? "bg-alert-wash text-alert" : "bg-leaf-wash text-leaf-deep"}`}>
+        <p role="status" className={`fixed bottom-4 left-1/2 z-20 max-w-[90vw] -translate-x-1/2 rounded-md border px-4 py-2 text-sm shadow-lg ${
+          message.bad ? "border-alert bg-alert-wash text-alert" : "border-leaf bg-leaf-wash text-leaf"}`}>
           {message.text}
+          <button className="ml-3 text-ink-soft hover:text-ink" onClick={() => setMessage(null)} aria-label="Dismiss">Close</button>
         </p>
       )}
 
       {!state ? (
         <p className="py-16 text-ink-soft">Loading the console…</p>
       ) : (
-        <main className="grid flex-1 gap-8 py-6 lg:grid-cols-[22rem_1fr]">
+        <main className="grid flex-1 gap-5 py-4 lg:min-h-0 lg:grid-cols-[19.5rem_minmax(0,1fr)_21rem]">
           <TroughList troughs={state.troughs} draws={currentPlan?.summary.trough_draw_ul ?? {}} selectedColumn={selected}
                       canAdd={!state.columns[String(selected)]}
                       onChange={editTrough}
@@ -151,18 +155,20 @@ export default function Console() {
                         const recipe = recipeFor(selected);
                         editDrafts({ ...drafts, [selected]: { ...recipe, ingredients: [...recipe.ingredients, { trough, volume_ul: 10 }] } });
                       }} />
-          <div className="flex min-w-0 flex-col gap-6">
-            <section aria-labelledby="plate-title">
-              <div className="mb-2 flex items-baseline justify-between gap-4">
-                <h1 id="plate-title" className="font-[family-name:var(--font-display)] text-3xl">{plate}</h1>
-                <span className="text-sm text-ink-soft">Armadillo 96-well PCR plate, slot B3</span>
-              </div>
+          <section aria-labelledby="plate-title" className="flex min-h-0 flex-col">
+            <div className="mb-1 flex shrink-0 items-baseline justify-between gap-4">
+              <h1 id="plate-title" className="font-[family-name:var(--font-display)] text-2xl leading-tight">{plate}</h1>
+              <span className="text-xs text-ink-soft">Armadillo 96-well PCR plate, slot B3</span>
+            </div>
+            <div className="min-h-0 flex-1">
               <PlateView troughs={state.troughs} drafts={drafts} brewed={state.columns} selected={selected}
                          justBrewed={justBrewed} onSelect={setSelected} />
-            </section>
-            <div className="grid gap-8 xl:grid-cols-[1fr_20rem]">
-              <RecipeEditor column={selected} recipe={recipeFor(selected)} brewed={state.columns[String(selected)]}
-                            troughs={state.troughs} onChange={(recipe) => editDrafts({ ...drafts, [selected]: recipe })} />
+            </div>
+          </section>
+          <div className="flex min-h-0 flex-col gap-4 lg:overflow-y-auto lg:pr-1">
+            <RecipeEditor column={selected} recipe={recipeFor(selected)} brewed={state.columns[String(selected)]}
+                          troughs={state.troughs} onChange={(recipe) => editDrafts({ ...drafts, [selected]: recipe })} />
+            <div className="border-t border-mithril pt-3">
               <OrderPanel recipes={recipes} plan={currentPlan} planning={planning} state={state} brewing={brewing} run={run}
                           onBrew={brew}
                           onRunAction={async (action) => {

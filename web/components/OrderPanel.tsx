@@ -27,17 +27,17 @@ export default function OrderPanel(p: Props) {
     </div>
   );
   return (
-    <section aria-labelledby="order-title" className="flex flex-col gap-4">
+    <section aria-labelledby="order-title" className="flex flex-col gap-3">
       <div>
         <h2 id="order-title" className="section-title">Order</h2>
         {recipes.length === 0 ? (
-          <p className="text-sm text-ink-soft">Pick a column on the plate and give it ingredients.</p>
+          <p className="text-xs text-ink-soft">Pick a column on the plate and give it ingredients.</p>
         ) : (
-          <ul className="mt-2 flex flex-col gap-1 text-sm">
+          <ul className="mt-1 flex max-h-28 flex-col gap-0.5 overflow-y-auto text-sm">
             {recipes.map((r) => (
               <li key={r.column} className="flex justify-between gap-3">
                 <span>Column {r.column}{r.name && <span className="text-ink-soft">: {r.name}</span>}</span>
-                <span className="text-ink-soft">{r.ingredients.length} ingredient{r.ingredients.length === 1 ? "" : "s"}</span>
+                <span className="shrink-0 whitespace-nowrap text-ink-soft">{r.ingredients.length} ingredient{r.ingredients.length === 1 ? "" : "s"}</span>
               </li>
             ))}
           </ul>
@@ -52,12 +52,12 @@ export default function OrderPanel(p: Props) {
       )}
 
       {plan && plan.problems.length > 0 && (
-        <ul className="rounded-md bg-alert-wash px-3 py-2 text-sm text-alert">
+        <ul className="max-h-24 overflow-y-auto rounded-md bg-alert-wash px-3 py-2 text-xs text-alert">
           {plan.problems.map((problem) => <li key={problem}>{problem.charAt(0).toUpperCase() + problem.slice(1)}.</li>)}
         </ul>
       )}
       {plan?.simulation && (
-        <p className={`text-sm ${plan.simulation.ok ? "text-leaf" : "text-alert"}`}>
+        <p className={`text-xs ${plan.simulation.ok ? "text-leaf" : "text-alert"}`}>
           {plan.simulation.ok ? `Simulated on the Opentrons simulator: ${plan.simulation.steps} steps, no errors.` : `Simulation failed: ${plan.simulation.error}`}
         </p>
       )}
@@ -65,7 +65,7 @@ export default function OrderPanel(p: Props) {
         <p className="text-sm text-alert">The plate in B3 isn&apos;t calibrated on this laptop. Run flex calibrate at the robot before brewing.</p>
       )}
 
-      <button className="btn btn-primary py-3 text-base" disabled={!ready || p.brewing || p.planning} onClick={p.onBrew}>
+      <button className="btn btn-primary py-2.5 text-base" disabled={!ready || p.brewing || p.planning} onClick={p.onBrew}>
         {p.brewing ? "Brewing…" : p.planning ? "Checking the order…"
           : recipes.length ? `Brew ${recipes.length} column${recipes.length === 1 ? "" : "s"}` : "Brew"}
       </button>
@@ -86,7 +86,7 @@ export default function OrderPanel(p: Props) {
         </div>
       )}
 
-      <div className="flex gap-2 border-t border-mithril-soft pt-3">
+      <div className="flex gap-2 border-t border-mithril-soft pt-2">
         <button className="btn btn-quiet" onClick={p.onTipsRefilled}>Tip racks refilled</button>
         <button className="btn btn-quiet" onClick={p.onNewPlate}>New plate</button>
       </div>

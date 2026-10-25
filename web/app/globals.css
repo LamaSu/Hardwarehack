@@ -1,35 +1,41 @@
 @import "tailwindcss";
 
-/* Athelas Apothecary: cool paper, green-slate ink, leaf green for actions,
-   mithril silver for structure, lamplight amber only while brewing. */
+/* Athelas Apothecary, dark: black ground, light text, leaf green for actions,
+   mithril grey for structure, lamplight amber only while brewing. */
 @theme {
-  --color-paper: #f4f6f5;
-  --color-surface: #ffffff;
-  --color-ink: #1b2a28;
-  --color-ink-soft: #55635f;
-  --color-leaf: #2e7a57;
-  --color-leaf-deep: #235f44;
-  --color-leaf-wash: #e3efe8;
-  --color-mithril: #c7d2d6;
-  --color-mithril-soft: #e4eaec;
-  --color-amber: #c9962e;
-  --color-alert: #b4473a;
-  --color-alert-wash: #f6e4e1;
+  --color-paper: #000000;
+  --color-surface: #0d1211;
+  --color-raised: #141b19;
+  --color-ink: #e8eeec;
+  --color-ink-soft: #94a39f;
+  --color-leaf: #4fb37f;
+  --color-leaf-deep: #3d9a69;
+  --color-leaf-wash: #12261c;
+  --color-mithril: #34403d;
+  --color-mithril-soft: #1f2826;
+  --color-amber: #e0b04a;
+  --color-alert: #ec7a66;
+  --color-alert-wash: #2a1411;
+  --color-plate: #0f1513;
+  --color-well: #050807;
   --font-display: var(--font-marcellus), "Times New Roman", serif;
   --font-sans: var(--font-plex), system-ui, sans-serif;
 }
 
 html, body { background: var(--color-paper); color: var(--color-ink); }
-body { font-family: var(--font-sans); font-size: 15px; line-height: 1.5; font-feature-settings: "tnum" 1; }
+body { font-family: var(--font-sans); font-size: 14px; line-height: 1.5; font-feature-settings: "tnum" 1; }
 h1, h2, h3 { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; }
 
 :focus-visible { outline: 2px solid var(--color-leaf); outline-offset: 2px; }
 
-.btn { @apply inline-flex items-center justify-center gap-2 rounded-md border border-mithril bg-surface px-3.5 py-2 text-sm text-ink transition-colors hover:border-ink-soft disabled:cursor-not-allowed disabled:opacity-45; }
-.btn-primary { @apply border-leaf bg-leaf text-white hover:border-leaf-deep hover:bg-leaf-deep; }
+.btn { @apply inline-flex items-center justify-center gap-2 rounded-md border border-mithril bg-surface px-3 py-1.5 text-sm text-ink transition-colors hover:border-ink-soft disabled:cursor-not-allowed disabled:opacity-45; }
+.btn-primary { @apply border-leaf bg-leaf font-medium text-black hover:border-leaf-deep hover:bg-leaf-deep; }
 .btn-quiet { @apply border-transparent bg-transparent px-2 text-ink-soft hover:border-transparent hover:text-ink; }
-.field { @apply w-full rounded-md border border-mithril bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-leaf; }
-.section-title { @apply font-[family-name:var(--font-display)] text-xl text-ink; }
+.field { @apply w-full rounded-md border border-mithril bg-raised px-2 py-1 text-sm text-ink outline-none focus:border-leaf; }
+.section-title { @apply font-[family-name:var(--font-display)] text-lg leading-tight text-ink; }
+select.field option { background: var(--color-raised); color: var(--color-ink); }
+input[type="checkbox"] { accent-color: var(--color-leaf); }
+html { color-scheme: dark; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

@@ -10,7 +10,7 @@ const PAD_Y = 34;
 const WELL_R = 17;
 const PLATE_W = PAD_X + COLUMNS * PITCH + 18;
 const PLATE_H = PAD_Y + ROWS.length * PITCH + 14;
-const GLASS_H = 120;
+const GLASS_H = 96;
 
 interface Props {
   troughs: Trough[];
@@ -24,15 +24,15 @@ interface Props {
 export default function PlateView({ troughs, drafts, brewed, selected, justBrewed, onSelect }: Props) {
   const tint = (trough: number) => troughs.find((t) => t.trough === trough)?.color ?? "#999";
   return (
-    <svg viewBox={`0 0 ${PLATE_W} ${PLATE_H + GLASS_H + 36}`} className="w-full" role="group" aria-label="Armadillo 96-well plate, 12 columns">
+    <svg viewBox={`0 0 ${PLATE_W} ${PLATE_H + GLASS_H + 36}`} className="h-full w-full" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Armadillo 96-well plate, 12 columns">
       <defs>
         <linearGradient id="glass" x1="0" x2="1">
-          <stop offset="0" stopColor="#ffffff" stopOpacity="0.55" />
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.16" />
           <stop offset="0.4" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
       </defs>
       {/* plate body and skirt */}
-      <rect x={4} y={4} width={PLATE_W - 8} height={PLATE_H - 8} rx={14} fill="#eef2f3" stroke="var(--color-mithril)" strokeWidth={2} />
+      <rect x={4} y={4} width={PLATE_W - 8} height={PLATE_H - 8} rx={14} fill="var(--color-plate)" stroke="var(--color-mithril)" strokeWidth={2} />
       <rect x={14} y={14} width={PLATE_W - 28} height={PLATE_H - 28} rx={8} fill="none" stroke="var(--color-mithril-soft)" strokeWidth={1.5} />
       <path d={`M4 30 L22 12`} stroke="var(--color-mithril)" strokeWidth={2} />
 
@@ -59,10 +59,10 @@ export default function PlateView({ troughs, drafts, brewed, selected, justBrewe
               const fill = Math.min(volume / WELL_CAPACITY_UL, 1);
               return (
                 <g key={row}>
-                  <circle cx={x} cy={y} r={WELL_R} fill="#ffffff" stroke="var(--color-mithril)" strokeWidth={1.5} />
+                  <circle cx={x} cy={y} r={WELL_R} fill="var(--color-well)" stroke="var(--color-mithril)" strokeWidth={1.5} />
                   {colour && (
                     <circle cx={x} cy={y} r={4 + (WELL_R - 5) * Math.sqrt(fill)} fill={colour}
-                            fillOpacity={done ? 0.95 : 0.78}
+                            fillOpacity={done ? 1 : 0.8}
                             className={flashIndex >= 0 ? "brew-flash" : undefined}
                             style={flashIndex >= 0 ? { animationDelay: `${flashIndex * 140}ms` } : undefined} />
                   )}
@@ -70,7 +70,7 @@ export default function PlateView({ troughs, drafts, brewed, selected, justBrewe
               );
             })}
             {/* the column's recipe as a glass of layers, to scale against one well */}
-            <rect x={x - 12} y={PLATE_H + 14} width={24} height={GLASS_H} rx={5} fill="#ffffff" stroke="var(--color-mithril)" strokeWidth={1.5} />
+            <rect x={x - 12} y={PLATE_H + 14} width={24} height={GLASS_H} rx={5} fill="var(--color-well)" stroke="var(--color-mithril)" strokeWidth={1.5} />
             {ingredients.map((ingredient, i) => {
               const h = (ingredient.volume_ul / WELL_CAPACITY_UL) * (GLASS_H - 4);
               stackY -= h;

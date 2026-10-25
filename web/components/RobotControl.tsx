@@ -40,7 +40,7 @@ export default function RobotControl({ onChange }: { onChange: () => void }) {
         {label}
       </button>
       {open && config && (
-        <div className="absolute right-0 z-10 mt-2 w-72 rounded-lg border border-mithril bg-surface p-4 shadow-lg" role="dialog" aria-label="Robot connection">
+        <div className="absolute right-0 z-30 mt-2 w-72 rounded-lg border border-mithril bg-raised p-4 shadow-lg shadow-black" role="dialog" aria-label="Robot connection">
           <label className="mb-2 block text-sm">
             Robot address
             <input className="field mt-1" placeholder="192.168.0.42" value={config.host} disabled={config.mock}
