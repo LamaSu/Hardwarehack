@@ -1,16 +1,17 @@
 "use client";
 // Recipe for the selected plate column: ingredients in the order they're added to the well.
-import { MIN_DRAW_UL, total, WELL_CAPACITY_UL, type Recipe, type Trough } from "@/lib/apothecary";
+import { defaultName, MIN_DRAW_UL, total, WELL_CAPACITY_UL, type Recipe, type Trough } from "@/lib/apothecary";
 
 interface Props {
   column: number;
+  plate: string;
   recipe: Recipe;
   brewed?: { name: string; ingredients: { trough: number; volume_ul: number }[]; brewed: string };
   troughs: Trough[];
   onChange: (recipe: Recipe) => void;
 }
 
-export default function RecipeEditor({ column, recipe, brewed, troughs, onChange }: Props) {
+export default function RecipeEditor({ column, plate, recipe, brewed, troughs, onChange }: Props) {
   const name = (trough: number) => troughs.find((t) => t.trough === trough)?.name ?? `Trough ${trough}`;
   const tint = (trough: number) => troughs.find((t) => t.trough === trough)?.color ?? "#999";
 
@@ -38,9 +39,9 @@ export default function RecipeEditor({ column, recipe, brewed, troughs, onChange
 
   return (
     <section aria-labelledby="recipe-title">
-      <h2 id="recipe-title" className="section-title">Column {column}</h2>
-      <p className="mb-2 text-xs text-ink-soft">Wells A to H all get this recipe. At least {MIN_DRAW_UL} µL per ingredient, a fresh tip for each.</p>
-      <input className="field mb-2" placeholder="Name this concoction" maxLength={80} value={recipe.name}
+      <h2 id="recipe-title" className="section-title">{recipe.name.trim() || defaultName(plate, column)}</h2>
+      <p className="mb-2 text-xs text-ink-soft">Column {column}: wells A to H all get this recipe. At least {MIN_DRAW_UL} µL per ingredient, a fresh tip for each.</p>
+      <input className="field mb-2" placeholder={defaultName(plate, column)} maxLength={80} value={recipe.name}
              aria-label="Concoction name" onChange={(e) => onChange({ ...recipe, name: e.target.value })} />
       {recipe.ingredients.length === 0 ? (
         <p className="rounded-md border border-dashed border-mithril px-3 py-3 text-xs text-ink-soft">

@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { orderable, type ConsoleState, type PlanResult, type Recipe, type Trough } from "@/lib/apothecary";
+import { orderable, withDefaultNames, type ConsoleState, type PlanResult, type Recipe, type Trough } from "@/lib/apothecary";
 import { api } from "@/lib/api";
 import OrderPanel from "./OrderPanel";
 import PlateView from "./PlateView";
@@ -46,7 +46,10 @@ export default function Console() {
       .catch((e: Error) => setMessage({ text: e.message, bad: true }));
   }, [plate]);
 
-  const recipes = useMemo(() => orderable(drafts).filter((r) => !state?.columns[String(r.column)]), [drafts, state]);
+  // Unnamed columns carry a default name that follows the plate name ("Batch 2 column 3").
+  const recipes = useMemo(
+    () => withDefaultNames(plate, orderable(drafts).filter((r) => !state?.columns[String(r.column)])),
+    [drafts, state, plate]);
 
   // Check the order with the API (rules + simulator) shortly after each edit. Each result carries the
   // order it was checked for, so a check of an older version of the order never enables Brew.
@@ -166,7 +169,7 @@ export default function Console() {
             </div>
           </section>
           <div className="flex min-h-0 flex-col gap-4 lg:overflow-y-auto lg:pr-1">
-            <RecipeEditor column={selected} recipe={recipeFor(selected)} brewed={state.columns[String(selected)]}
+            <RecipeEditor column={selected} plate={plate} recipe={recipeFor(selected)} brewed={state.columns[String(selected)]}
                           troughs={state.troughs} onChange={(recipe) => editDrafts({ ...drafts, [selected]: recipe })} />
             <div className="border-t border-mithril pt-3">
               <OrderPanel recipes={recipes} plan={currentPlan} planning={planning} state={state} brewing={brewing} run={run}

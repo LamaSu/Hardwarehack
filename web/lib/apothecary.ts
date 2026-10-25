@@ -50,3 +50,10 @@ export function formatVolume(ul: number | null | undefined): string {
   if (ul === null || ul === undefined) return "not set";
   return ul >= 1000 ? `${Number((ul / 1000).toPrecision(3))} mL` : `${Number(ul.toPrecision(3))} µL`;
 }
+
+/** Name for a concoction nobody named yet: follows the plate name, e.g. "Batch 2 column 3". */
+export const defaultName = (plate: string, column: number) => `${plate} column ${column}`;
+
+/** Recipes as sent to the API: unnamed ones carry their default name. */
+export const withDefaultNames = (plate: string, recipes: Recipe[]) =>
+  recipes.map((r) => (r.name.trim() ? r : { ...r, name: defaultName(plate, r.column) }));

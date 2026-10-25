@@ -36,7 +36,7 @@ export default function OrderPanel(p: Props) {
           <ul className="mt-1 flex max-h-28 flex-col gap-0.5 overflow-y-auto text-sm">
             {recipes.map((r) => (
               <li key={r.column} className="flex justify-between gap-3">
-                <span>Column {r.column}{r.name && <span className="text-ink-soft">: {r.name}</span>}</span>
+                <span>{r.name}</span>
                 <span className="shrink-0 whitespace-nowrap text-ink-soft">{r.ingredients.length} ingredient{r.ingredients.length === 1 ? "" : "s"}</span>
               </li>
             ))}
