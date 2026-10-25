@@ -28,6 +28,7 @@ cd drug-screen-platform
 uv sync
 uv run pytest
 uv run python scripts/serve.py          # API on 127.0.0.1:8000
+FLEX_MOCK=1 uv run python scripts/serve.py --reload   # same, pretend robot + auto-reload (off the robot's network)
 uv run plate check [plate.json]         # replay the plan (default: example plate)
 uv run plate protocol plate.json        # generate runs/<plate>/protocol.py
 uv run plate simulate runs/<plate>/protocol.py

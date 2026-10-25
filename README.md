@@ -40,14 +40,42 @@ npm run dev
 Then open <http://127.0.0.1:3000>. Keep both terminals running; Ctrl-C stops
 each server.
 
-To connect the robot, open the **Robot** tab, enter the robot's IP address and
-press **Connect** (tick **Mock robot** to rehearse without hardware). To have
-the API connect on start instead:
+To connect the robot, click the robot button at the top right of the console,
+enter the robot's IP address and press **Connect**. To have the API connect on
+start instead:
 
 ```bash
 FLEX_HOST=<robot-ip> uv run python scripts/serve.py          # macOS / Linux
 $env:FLEX_HOST="<robot-ip>"; uv run python scripts/serve.py  # Windows PowerShell
 ```
+
+### Working without the robot (mock mode)
+
+Away from the lab, or off the robot's Wi-Fi, run the API against a pretend
+robot. Everything works the same except that nothing physical moves:
+
+```bash
+cd drug-screen-platform
+FLEX_MOCK=1 uv run python scripts/serve.py --reload                   # macOS / Linux
+$env:FLEX_MOCK="1"; uv run python scripts/serve.py --reload           # Windows PowerShell
+```
+
+- The header shows **Mock robot**. You can also switch while the API runs: click
+  the robot button, tick **Mock robot** and press **Connect** (this lasts until
+  the API restarts).
+- Orders are still checked and run through the Opentrons simulator. **Brew**
+  "runs" instantly on the mock and the camera returns a placeholder picture.
+- Brewing on the mock is still recorded: trough volumes go down, tip columns are
+  used and plate columns are marked brewed (in `runs/apothecary.json`). Use
+  **Tip racks refilled** and **New plate** to reset, or point the API at a
+  scratch folder so your real records stay untouched:
+  `RUNS_DIR=/tmp/athelas-mock FLEX_MOCK=1 uv run python scripts/serve.py --reload`.
+- `--reload` restarts the API by itself whenever Python code changes; without
+  it, restart the API after pulling or editing Python code.
+- The command-line tools take `--mock` the same way, e.g.
+  `uv run flex demo plate.json --mock`.
+
+Back at the robot, start the API without `FLEX_MOCK` (and turn any VPN off).
 
 The web UI is the **Athelas Apothecary** console, a concoction-on-demand screen
 for the Studio45 deck:
@@ -76,7 +104,12 @@ and allow outbound TCP 31950 to the robot.
   stopped with an error.
 - *"Can't reach the Flex at ..."*: check the IP on the robot's touchscreen
   (Settings, Network), put the laptop on the same network, turn the VPN off.
-- *Port already in use*: an old server is still running; close its terminal.
+- *Port already in use*: an old server is still running; close its terminal,
+  or stop it with `pkill -f scripts/serve.py` / `pkill -f "next dev"`.
+- *The UI shows old data or names*: the API is running old code; restart it
+  (or run it with `--reload`).
+- *The page looks half styled or stale*: stop `npm run dev`, delete `web/.next`
+  and start it again.
 - `npm` says it can't find `package.json`: you are not in the `web` folder.
 
 ## Command line
