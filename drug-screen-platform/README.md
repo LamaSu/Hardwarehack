@@ -50,6 +50,16 @@ Shares its look and core calculation code with the
 
 ![Intermediate plate](docs/screenshot_intermediate.png)
 
+## Deck layout
+
+![Flex deck layout](docs/deck_layout.png)
+
+Slot assignments live in `src/deck_layout.py`; redraw the map after changing them:
+
+```bash
+uv run --with pillow --with matplotlib python scripts/draw_deck_layout.py
+```
+
 ## Requirements
 
 - Python 3.11+
@@ -84,6 +94,7 @@ drug-screen-platform/
 │   ├── dilution_planner.py # intermediate dilutions and ordered transfer list
 │   ├── reservoirs.py      # Opentrons reservoir labware (load names, wells, volumes)
 │   ├── tip_tracker.py     # pipette and tip per transfer, expected tip-rack state
+│   ├── deck_layout.py     # Flex deck slot assignments
 │   ├── plan_checker.py    # replays the transfers and checks every well
 │   ├── plate_canvas.py    # interactive plate widget
 │   ├── ui_helpers.py      # theme tokens and window helpers
@@ -91,7 +102,8 @@ drug-screen-platform/
 │   ├── formatters.py      # from Drug Concentration Calculator
 │   └── font_manager.py    # from Drug Concentration Calculator
 ├── scripts/
-│   └── verify_plan.py     # command-line plan check
+│   ├── verify_plan.py     # command-line plan check
+│   └── draw_deck_layout.py # renders docs/deck_layout.png
 ├── tests/
 └── assets/
 ```

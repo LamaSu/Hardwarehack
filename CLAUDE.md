@@ -13,7 +13,10 @@ an end-to-end drug screening platform driving an Opentrons Flex.
   - `src/reservoirs.py` — Opentrons reservoir labware for medium and edge-fill liquids
   - `src/tip_tracker.py` — pipette and tip per transfer; expected tip-rack state after any step
   - `src/plan_checker.py` — replays the transfer list and checks every well (independent of the planner)
+  - `src/deck_layout.py` — Flex deck slot assignments (source for the deck map and the protocol)
   - `scripts/verify_plan.py` — command-line check of a saved layout
+  - `scripts/draw_deck_layout.py` — renders `docs/deck_layout.png`
+    (`uv run --with pillow --with matplotlib python scripts/draw_deck_layout.py`)
   - `src/plate_canvas.py` — interactive plate widget
   - `tests/` — pytest
 - `docker/`, `docker-compose.yml`, `scripts/start_claude.sh` — Claude Code container
