@@ -27,7 +27,9 @@ A visual read of the picture, not verified against anything the robot knows (the
 | A1 | teal tip rack with tips, label looks like "1000 µL Filter Tip" |
 | A2 | purple tip rack with tips, label looks like "50 µL Filter Tip" |
 | A3 | trash bin (black, matches the deck configuration) |
-| B1, B2, B3 | one clear plate or tray in each, 96-well-like. The type cannot be told from the picture |
+| B1 | 12-trough reservoir (NEST 12 x 15 mL), per `ebrinz`'s notes |
+| B2 | 96 deep-well stock plate, per `ebrinz`'s notes |
+| B3 | Armadillo 96-well PCR plate on a deep-well plate used as a riser (about 40 mm up), per `ebrinz`'s notes |
 | C1 to C3, D1 to D3 | empty |
 
 The labels are blurry even at 2x zoom. A person should read them.
@@ -44,7 +46,7 @@ The labels are blurry even at 2x zoom. A person should read them.
 
 ## Not verified
 
-- The labware types in B1 to B3 and the tip sizes in A1 and A2.
+- The labware in B1 to B3 comes from `ebrinz`'s notes and matches the camera picture, but nothing else checked it. The tip sizes in A1 and A2 come from the labels only.
 - Whether writes (upload, create run, play) need a login.
 - Whether the stored deck calibration from 2022 is good enough in practice. Its status is OK.
 - Image quality for reading small labels.

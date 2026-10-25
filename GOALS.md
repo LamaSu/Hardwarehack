@@ -146,7 +146,7 @@ Done when: `--help` lists them, each works on the demo layout JSON, and the demo
 Done when: scanning a stock plate loads its stocks into the plan, scanning the wrong plate blocks the run with a clear message, and the mock backend runs the whole demo without hardware.
 
 ### G6. Sample log and LIMS
-- Start with an in-repo registry (SQLite) behind one adapter: `register_sample`, `lookup_by_barcode`, `record_transfer`, `adjust_volume`, `get_lineage`.
+- Start with an in-repo registry (SQLite) behind one adapter: `register_container`, `register_content`, `get_by_barcode`, `list_wells`, `record_scan`, `record_transfer`, `adjust_volume`, `get_lineage`, `get_history`, `events_since`, `capabilities`. The registry is also the well ledger of G10. Build brief for a coding agent: [docs/agent-prompts/sample-registry.md](docs/agent-prompts/sample-registry.md).
 - Research a real LIMS with barcode scanning and a Python-friendly API, open source and SaaS, and choose by time to first API call. Shortlist to evaluate (not yet checked): eLabFTW, Benchling, LabKey Sample Manager, SENAITE, OpenSpecimen, Quartzy, SciNote, Snipe-IT. Adopt one only if its adapter works before the Sunday 8 AM robot window. Otherwise ship the registry and document the swap.
 
 Done when: after a run, the log shows for each assay well where it came from (stock barcode and well, intermediate well, assay well, volumes, time) and the stock volume has been reduced.
@@ -245,7 +245,7 @@ About 9 hours of robot time remain on Saturday evening and 6.5 on Sunday morning
 | Q8 | Targets and wells | Answered by the planner: select wells in the GUI, dose series, per-well targets. |
 | Q9 | Guardrails | Minimum 5 µL for this pipette (G1), DMSO flag at 0.5% exists. |
 | Q10 | Scanner | Unanswered. Default: USB handheld, mock if none. |
-| Q11 | LIMS access | Unanswered. Default: SQLite registry with an adapter. |
+| Q11 | LIMS access | Decided 17:56: in-repo SQLite registry behind an adapter first. Research found no adoptable LIMS in 24 hours. An optional 45-minute InvenTree test comes only after the registry works. Brief: [docs/agent-prompts/sample-registry.md](docs/agent-prompts/sample-registry.md). |
 | Q12 | What to track | Proposal in G6. |
 | Q13 | Stack | Answered by `ebrinz`'s branch: Python 3.12, FastAPI, Next.js, Typer CLIs (replaces the desktop GUI once merged). |
 | Q14 | Demo machine | Unanswered. |

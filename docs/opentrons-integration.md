@@ -87,3 +87,9 @@ uv venv --python 3.12 .venv-ot && uv pip install --python .venv-ot/Scripts/pytho
 ```
 
 On Python 3.11 the second command fails on import with the TypedDict error above.
+
+## 8. Coordination notes (Saturday about 18:00 PDT)
+
+- **Two deck layouts.** The generator on `main` assumes single-nozzle mode (tips D1 to D3, row A empty, tube rack B1, assay B2, intermediate B3, medium C2). `medium_fill.py` and the physical deck use full-column mode (tips A1 and A2, reservoir B1, stock plate B2, PCR plate on a riser B3). Pick one layout for dosing and keep it in one deck map.
+- **Planner contract change pending on `steffi/plate-designer`.** Her branch (not merged) renames the medium source from `medium` to `reservoir`, adds an `edge` phase and reservoir wells, and repurposes the `MEDIUM` constant as a liquid name. The generator imports `MEDIUM` as a labware key, so it breaks after that merge (its tests should catch it). Her branch is also based on the code from before the web UI and still edits the deleted desktop GUI files, so merging `main` into it will conflict on `main.py` and `ui_helpers.py`.
+- **Filter tips.** The rack in A1 is loaded as `opentrons_flex_96_tiprack_1000ul`, but its label in the camera picture looked like a filter rack. Check it.
