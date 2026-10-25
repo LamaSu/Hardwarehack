@@ -14,15 +14,15 @@ interface Props {
 
 export default function TroughList({ troughs, draws, selectedColumn, canAdd, onChange, onAdd }: Props) {
   return (
-    <section aria-labelledby="troughs-title" className="flex min-h-0 flex-col">
+    <section aria-labelledby="troughs-title" className="flex min-h-0 flex-col lg:h-full">
       <h2 id="troughs-title" className="section-title">Reservoir</h2>
       <p className="mb-2 text-xs text-ink-soft">12 troughs in slot B1. Add them to column {selectedColumn}.</p>
-      <ol className="flex min-h-0 flex-col divide-y divide-mithril-soft overflow-y-auto rounded-lg border border-mithril bg-surface">
+      <ol className="flex min-h-0 flex-col divide-y divide-mithril-soft overflow-y-auto rounded-lg border border-mithril bg-surface lg:flex-1">
         {troughs.map((t) => {
           const draw = draws[String(t.trough)] ?? 0;
           const short = t.volume_ul !== null && draw > t.volume_ul;
           return (
-            <li key={t.trough} className="grid grid-cols-[auto_1fr_4.75rem_auto] items-center gap-2 px-2.5 py-1">
+            <li key={t.trough} className="grid grid-cols-[auto_1fr_4.25rem_auto] items-center gap-2 px-2.5 py-1 lg:min-h-9 lg:flex-1">
               <label className="relative size-5 cursor-pointer overflow-hidden rounded-full border border-mithril" style={{ background: t.color }}
                      title="Change colour">
                 <input type="color" value={t.color} onChange={(e) => onChange({ ...t, color: e.target.value })}

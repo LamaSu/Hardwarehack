@@ -15,11 +15,26 @@ FILE_NAME = "apothecary.json"
 # Liquid tints for the troughs, picked to stay distinguishable side by side.
 TINTS = ["#4F9DDE", "#E0A43A", "#5DB37E", "#C8566B", "#8A6FD1", "#3FB6B0",
          "#D9774A", "#A3B83D", "#D45FA6", "#6C8CA6", "#B88B5A", "#7C5CA3"]
+# Default trough names, one per tint above (Middle-earth apothecary stock).
+DEFAULT_NAMES = [
+    "Bruinen Spring Water",    # blue
+    "Meduseld Mead",           # amber
+    "Athelas Infusion",        # green: kingsfoil
+    "Dorwinion Red",           # red
+    "Light of Eärendil",       # violet
+    "Ent-draught",             # teal
+    "Orodruin Ember",          # orange
+    "Green Dragon Cider",      # lime
+    "Rivendell Rosewater",     # pink
+    "Mithril Saline",          # steel blue
+    "Lembas Broth",            # tan
+    "Miruvor Cordial",         # purple
+]
 
 
 def _default() -> dict:
     return {
-        "troughs": [{"trough": t, "name": f"Trough {t}", "color": TINTS[t - 1], "volume_ul": None}
+        "troughs": [{"trough": t, "name": DEFAULT_NAMES[t - 1], "color": TINTS[t - 1], "volume_ul": None}
                     for t in range(1, TROUGHS + 1)],
         "tips": {"small_next": 1, "large_next": 1},
         "plates": {},
@@ -32,11 +47,16 @@ def _path():
 
 def load() -> dict:
     try:
-        return {**_default(), **json.loads(_path().read_text(encoding="utf-8"))}
+        state = {**_default(), **json.loads(_path().read_text(encoding="utf-8"))}
     except FileNotFoundError:
         return _default()
     except (OSError, json.JSONDecodeError) as error:
         raise OSError(f"Could not read {_path()}: {error}") from error
+    # Earlier versions saved "Trough N" placeholders: give those the themed name; keep typed names.
+    for trough in state["troughs"]:
+        if trough["name"] == f"Trough {trough['trough']}":
+            trough["name"] = DEFAULT_NAMES[trough["trough"] - 1]
+    return state
 
 
 def save(state: dict) -> None:

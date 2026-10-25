@@ -22,7 +22,7 @@ ORDER = {"plate": "Batch 1", "recipes": [
 def test_initial_state(client):
     state = client.get("/apothecary/state", params={"plate": "Batch 1"}).json()
     assert len(state["troughs"]) == 12
-    assert state["troughs"][0] == {"trough": 1, "name": "Trough 1", "color": state["troughs"][0]["color"], "volume_ul": None}
+    assert state["troughs"][0] == {"trough": 1, "name": "Bruinen Spring Water", "color": state["troughs"][0]["color"], "volume_ul": None}
     assert state["tips"] == {"small_next": 1, "large_next": 1, "small_left": 12, "large_left": 12}
     assert state["columns"] == {} and state["robot"]["mock"] is True
 
@@ -70,3 +70,22 @@ def test_real_robot_brew_needs_calibration(client, monkeypatch):
     client.put("/robot/config", json={"host": "10.0.0.5", "port": 31950, "mock": False})
     response = client.post("/apothecary/brew", json=ORDER)
     assert response.status_code == 422 and "calibrate" in response.json()["detail"]
+
+
+def test_troughs_get_themed_default_names(client):
+    names = [t["name"] for t in client.get("/apothecary/state").json()["troughs"]]
+    assert len(set(names)) == 12
+    assert not any(name.startswith("Trough ") for name in names)
+    assert all(len(name) <= 40 for name in names)
+
+
+def test_old_placeholder_names_upgrade_but_typed_names_stay(client):
+    import apothecary_state
+
+    state = apothecary_state.load()
+    state["troughs"][0]["name"] = "Trough 1"     # placeholder saved by an earlier version
+    state["troughs"][1]["name"] = "Saline"       # typed by someone
+    apothecary_state.save(state)
+    troughs = client.get("/apothecary/state").json()["troughs"]
+    assert troughs[0]["name"] == apothecary_state.DEFAULT_NAMES[0]
+    assert troughs[1]["name"] == "Saline"
