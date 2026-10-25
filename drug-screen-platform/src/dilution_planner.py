@@ -2,9 +2,9 @@
 Plan pipetting for a plate layout, adding intermediate dilutions where a
 direct transfer from stock would be below the pipette's minimum volume.
 
-The plan is an ordered list of transfers (medium into intermediate wells,
-intermediate preparation, then dosing of the assay plate) that a robot
-protocol can execute step by step.
+The plan is an ordered list of transfers (edge fill from the reservoir,
+medium into intermediate wells, intermediate preparation, then dosing of the
+assay plate) that a robot protocol can execute step by step.
 """
 
 import csv
@@ -14,9 +14,10 @@ from typing import Optional
 
 from plate_formats import well_name, well_sort_key
 from plate_layout import (
-    MAX_DMSO_PERCENT, ROLE_POSITIVE, ROLE_TREATMENT, ROLE_UNTREATED, ROLE_VEHICLE,
+    MAX_DMSO_PERCENT, ROLE_EDGE, ROLE_POSITIVE, ROLE_TREATMENT, ROLE_UNTREATED, ROLE_VEHICLE,
     PlateLayout, to_nanomolar,
 )
+from reservoirs import DEFAULT_RESERVOIR, RESERVOIR_FORMATS, ReservoirFormat
 
 INTERMEDIATE_ROWS = 8
 INTERMEDIATE_COLUMNS = 12
@@ -24,7 +25,8 @@ INTERMEDIATE_LABWARE = "nest_96_wellplate_2ml_deep"
 STOCK = "stock"
 INTERMEDIATE = "intermediate"
 ASSAY = "assay"
-MEDIUM = "medium"
+RESERVOIR = "reservoir"
+MEDIUM = "Medium"
 
 
 @dataclass
@@ -46,6 +48,9 @@ class PipettingSettings:
     helper_volume_ul : float, default=100.0
         Volume of extra pre-dilution wells added when a stock is too
         concentrated to reach an intermediate in one step.
+    reservoir_dead_volume_ul : float, default=2000.0
+        Extra volume left in every reservoir well. A placeholder until we
+        have measured what the pipette can still reach.
     """
 
     min_transfer_ul: float = 1.0
@@ -53,6 +58,7 @@ class PipettingSettings:
     dead_volume_ul: float = 20.0
     max_intermediate_volume_ul: float = 2000.0
     helper_volume_ul: float = 100.0
+    reservoir_dead_volume_ul: float = 2000.0
 
     def validate(self, well_volume_ul: float) -> list[str]:
         """Return a list of problems with these settings (empty if fine)."""
@@ -65,6 +71,8 @@ class PipettingSettings:
             problems.append("Intermediate transfer must be smaller than the well volume")
         if self.dead_volume_ul < 0:
             problems.append("Dead volume can't be negative")
+        if self.reservoir_dead_volume_ul < 0:
+            problems.append("Reservoir dead volume can't be negative")
         return problems
 
     @classmethod
@@ -124,6 +132,8 @@ class AssayStep:
             return f"{self.source_well} stock"
         if self.source_labware == INTERMEDIATE:
             return f"Int. {self.source_well}"
+        if self.source_labware == RESERVOIR:
+            return f"Reservoir {self.source_well}"
         return "—"
 
 
@@ -142,6 +152,29 @@ class Transfer:
 
 
 @dataclass
+class ReservoirWell:
+    """
+    One reservoir well and how much to pour into it.
+
+    Parameters
+    ----------
+    well : str
+        Reservoir well name.
+    liquid : str
+        Liquid in the well.
+    used_ul : float
+        Volume the plan takes out.
+    fill_ul : float
+        Volume to pour in: ``used_ul`` plus the reservoir dead volume.
+    """
+
+    well: str
+    liquid: str
+    used_ul: float = 0.0
+    fill_ul: float = 0.0
+
+
+@dataclass
 class DilutionPlan:
     """Result of ``plan_dilutions``."""
 
@@ -150,6 +183,8 @@ class DilutionPlan:
     transfers: list[Transfer]
     stock_usage_ul: dict[str, float]
     warnings: list[str]
+    reservoir_labware: str = DEFAULT_RESERVOIR
+    reservoir_wells: list[ReservoirWell] = field(default_factory=list)
 
     @property
     def needs_intermediate_plate(self) -> bool:
@@ -275,6 +310,59 @@ def _plan_liquid(
     return source_by_target, intermediates
 
 
+def reservoir_liquid_name(name: str) -> str:
+    """Canonical name of a reservoir liquid; blank or any spelling of medium is ``MEDIUM``."""
+    name = name.strip()
+    return MEDIUM if not name or name.casefold() == MEDIUM.casefold() else name
+
+
+def _allocate_reservoir(
+    transfers: list["Transfer"], reservoir: ReservoirFormat, dead_volume_ul: float,
+) -> tuple[list[ReservoirWell], list[str]]:
+    """
+    Give every reservoir transfer a source well, one liquid per well.
+
+    A liquid moves on to the next free well once the current one is used
+    up, so large medium volumes can span several wells.
+
+    Returns
+    -------
+    tuple of (list of ReservoirWell, list of str)
+        Wells in use and warnings. Transfers that don't fit get ``"—"``.
+    """
+    by_liquid: dict[str, list[Transfer]] = {}
+    for transfer in transfers:
+        if transfer.source_labware == RESERVOIR:
+            by_liquid.setdefault(transfer.liquid.casefold(), []).append(transfer)
+
+    capacity = reservoir.well_volume_ul - dead_volume_ul
+    free_wells = list(reservoir.wells)
+    wells: list[ReservoirWell] = []
+    warnings: list[str] = []
+    # Medium first so it always sits in the first well.
+    for key in sorted(by_liquid, key=lambda liquid_key: liquid_key != MEDIUM.casefold()):
+        current: Optional[ReservoirWell] = None
+        for transfer in by_liquid[key]:
+            if transfer.volume_ul > capacity + 1e-9:
+                transfer.source_well = "—"
+                warnings.append(f"{transfer.liquid}: {transfer.volume_ul:.0f} µL doesn't fit one reservoir well")
+                continue
+            if current is None or current.used_ul + transfer.volume_ul > capacity + 1e-9:
+                if not free_wells:
+                    transfer.source_well = "—"
+                    message = f"Reservoir is full: not enough wells for {transfer.liquid}"
+                    if message not in warnings:
+                        warnings.append(message)
+                    continue
+                current = ReservoirWell(free_wells.pop(0), transfer.liquid)
+                wells.append(current)
+            current.used_ul += transfer.volume_ul
+            transfer.source_well = current.well
+    for well in wells:
+        well.fill_ul = well.used_ul + dead_volume_ul
+    return wells, warnings
+
+
 def plan_dilutions(
     layout: PlateLayout, well_volume_ul: float, settings: Optional[PipettingSettings] = None,
 ) -> DilutionPlan:
@@ -302,6 +390,8 @@ def plan_dilutions(
       ``target / stock`` regardless of the dilution route.
     - Vehicle-control wells receive the highest solvent fraction used by
       any treatment with the same solvent.
+    - Edge-fill wells start empty and get their full volume from the
+      reservoir (``layout.reservoir``), as does the medium for intermediates.
 
     Examples
     --------
@@ -310,6 +400,8 @@ def plan_dilutions(
     """
     settings = settings or PipettingSettings()
     problems = settings.validate(well_volume_ul)
+    if layout.reservoir not in RESERVOIR_FORMATS:
+        problems.append(f"Unknown reservoir labware: {layout.reservoir}")
     if problems:
         raise ValueError("; ".join(problems))
 
@@ -324,6 +416,11 @@ def plan_dilutions(
         step = AssayStep(well, assignment.role, assignment.drug, target_text, "", "", None, None, None)
         steps[well] = step
 
+        if assignment.role == ROLE_EDGE:
+            step.liquid = reservoir_liquid_name(assignment.drug)
+            step.source_labware = RESERVOIR
+            step.transfer_ul = well_volume_ul
+            continue
         if assignment.role == ROLE_UNTREATED:
             step.medium_ul = well_volume_ul
             continue
@@ -401,33 +498,47 @@ def plan_dilutions(
                 step.transfer_ul = volume
                 step.medium_ul = well_volume_ul - volume
 
-    # Ordered transfers: medium into intermediates, intermediate prep, then dosing.
+    # Ordered transfers: edge fill, medium into intermediates, intermediate prep, then dosing.
     transfers: list[Transfer] = []
 
     def add(phase: str, src_lw: str, src_well: str, dst_lw: str, dst_well: str, volume: float, liquid: str):
         transfers.append(Transfer(len(transfers) + 1, phase, src_lw, src_well, dst_lw, dst_well, volume, liquid))
 
+    ordered_steps = sorted(steps.values(), key=lambda s: well_sort_key(s.well))
+    edge_steps = [step for step in ordered_steps if step.source_labware == RESERVOIR]
+    for step in edge_steps:
+        add("edge", RESERVOIR, "", ASSAY, step.well, step.transfer_ul, step.liquid)
     for item in intermediates:
-        add("prepare", MEDIUM, "reservoir", INTERMEDIATE, item.well, item.medium_volume_ul, MEDIUM)
+        add("prepare", RESERVOIR, "", INTERMEDIATE, item.well, item.medium_volume_ul, MEDIUM)
     for item in intermediates:
         add("prepare", item.source_labware, item.source_well, INTERMEDIATE, item.well,
             item.source_volume_ul, item.liquid)
-    for step in sorted(steps.values(), key=lambda s: well_sort_key(s.well)):
-        if step.transfer_ul:
+    for step in ordered_steps:
+        if step.transfer_ul and step.source_labware != RESERVOIR:
             add("dose", step.source_labware, step.source_well, ASSAY, step.well, step.transfer_ul, step.liquid)
+
+    reservoir_wells, reservoir_warnings = _allocate_reservoir(
+        transfers, RESERVOIR_FORMATS[layout.reservoir], settings.reservoir_dead_volume_ul)
+    edge_sources = {t.dest_well: t.source_well for t in transfers if t.phase == "edge"}
+    for step in edge_steps:
+        step.source_well = edge_sources[step.well]
+        if step.source_well == "—":
+            step.warnings.append("No room in the reservoir")
 
     stock_usage: dict[str, float] = {}
     for transfer in transfers:
         if transfer.source_labware == STOCK:
             stock_usage[transfer.liquid] = stock_usage.get(transfer.liquid, 0.0) + transfer.volume_ul
 
-    warnings = [w for item in intermediates for w in item.warnings]
+    warnings = [w for item in intermediates for w in item.warnings] + reservoir_warnings
     return DilutionPlan(
-        assay_steps=sorted(steps.values(), key=lambda s: well_sort_key(s.well)),
+        assay_steps=ordered_steps,
         intermediates=intermediates,
         transfers=transfers,
         stock_usage_ul=stock_usage,
         warnings=warnings,
+        reservoir_labware=layout.reservoir,
+        reservoir_wells=reservoir_wells,
     )
 
 

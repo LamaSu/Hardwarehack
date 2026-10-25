@@ -8,8 +8,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from plate_formats import PLATE_FORMATS, parse_well, row_label, well_name  # noqa: E402
-from plate_layout import PlateLayout, StockSolution, WellAssignment  # noqa: E402
+from plate_formats import PLATE_FORMATS, edge_wells, parse_well, row_label, well_name  # noqa: E402
+from plate_layout import ROLE_EDGE, PlateLayout, StockSolution, WellAssignment  # noqa: E402
 
 
 def test_well_counts():
@@ -90,3 +90,45 @@ def test_layout_csv_has_every_well(tmp_path):
     assert len(rows) == 24
     b3 = next(r for r in rows if r["well"] == "B3")
     assert (b3["row"], b3["column"], b3["drug"], b3["unit"]) == ("B", "3", "X", "nM")
+
+
+def test_edge_wells():
+    plate_96 = set(edge_wells(PLATE_FORMATS["96-well"]))
+    assert len(plate_96) == 36
+    assert {"A1", "A7", "D1", "D12", "H12"} <= plate_96
+    assert not {"B2", "G11", "D6"} & plate_96
+    assert len(edge_wells(PLATE_FORMATS["384-well"])) == 2 * 24 + 2 * 14
+    assert edge_wells(PLATE_FORMATS["24-well"]) == []
+
+
+def test_fill_edge_keeps_existing_wells_unless_overwritten():
+    layout = PlateLayout("96-well")
+    layout.assign(["A1"], WellAssignment(drug="X", concentration=1, unit="µM"))
+    filled = layout.fill_edge()
+    assert len(filled) == 35 and "A1" not in filled
+    assert layout.get("A1").drug == "X"
+    assert layout.get("H12").role == ROLE_EDGE
+    assert layout.get("B2") is None
+
+    assert len(layout.fill_edge(overwrite=True)) == 36
+    assert layout.get("A1").role == ROLE_EDGE
+
+
+def test_fill_edge_liquid_can_be_changed():
+    layout = PlateLayout("96-well")
+    layout.assign(["A1"], WellAssignment(drug="X", concentration=1, unit="µM"))
+    layout.fill_edge()
+    assert layout.get("A2").drug == "Medium"
+    assert len(layout.fill_edge("PBS")) == 35
+    assert layout.get("A2").drug == "PBS"
+    assert layout.get("A1").drug == "X"
+    layout.fill_edge("  ")
+    assert layout.get("A2").drug == "Medium"
+
+
+def test_edge_role_round_trips():
+    layout = PlateLayout("96-well")
+    layout.fill_edge("PBS")
+    restored = PlateLayout.from_dict(layout.to_dict())
+    assert restored.get("A1").role == ROLE_EDGE
+    assert restored.get("A1").drug == "PBS"

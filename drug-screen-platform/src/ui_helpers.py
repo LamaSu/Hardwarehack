@@ -34,6 +34,9 @@ EMPTY_WELL_OUTLINE = "#3C3C3C"
 VEHICLE_COLOR = "#8A9097"
 UNTREATED_COLOR = "#4B5661"
 UNTREATED_OUTLINE = "#6B7884"
+# Muted pink, like phenol-red medium.
+EDGE_COLOR = "#6E4A5A"
+EDGE_OUTLINE = "#9A6A80"
 
 # Distinct hues that read well on the dark background.
 DRUG_PALETTE = [

@@ -15,7 +15,10 @@ Shares its look and core calculation code with the
 - **Well selection**: click, drag a rectangle, click/drag row or column labels,
   corner = select all, Ctrl/Shift to add or remove wells
 - **Assign wells**: drug, final concentration (M/mM/µM/nM) and role
-  (treatment, vehicle control, positive control, untreated)
+  (treatment, vehicle control, positive control, untreated, edge fill)
+- **Plate edge**: on 96-well and larger plates, a warning before drugs or controls go into
+  the outer ring (edge effect), and one click to fill the edge with medium, PBS, water
+  or any other liquid
 - **Dose series**: fill a selection with a serial dilution, along rows or down columns
 - **Plate map**: color = drug, brightness = log concentration, ring = positive control
 - **Pipetting plan**: per-drug stock concentration and solvent; the planner works out
@@ -25,9 +28,12 @@ Shares its look and core calculation code with the
   dilutions on a 96 deep-well intermediate plate; very concentrated stocks get
   pre-dilution steps. Vehicle controls are matched to the highest solvent percentage
   of the treated wells, and DMSO above 0.5% is flagged
-- **Transfer list**: every robot step in order (medium into the intermediate plate,
-  intermediate preparation, dosing of the assay plate), exportable as CSV for the
-  Opentrons protocol
+- **Reservoir**: medium for the intermediate plate and the edge-fill liquids come from a
+  reservoir (default `opentrons_tough_12_reservoir_22ml`, any standard Opentrons reservoir
+  selectable), one liquid per well; Materials lists how much to pour into each well
+- **Transfer list**: every robot step in order (edge fill from the reservoir, medium into
+  the intermediate plate, intermediate preparation, dosing of the assay plate),
+  exportable as CSV for the Opentrons protocol
 - **Simulation check**: every plan is replayed transfer by transfer, independently of the
   planner, and each well is compared with the layout (concentration, volume, solvent %,
   no well aspirated dry, every transfer ≥ the minimum). Shown in the app after
@@ -71,6 +77,7 @@ drug-screen-platform/
 │   ├── plate_formats.py   # plate geometry, well naming, Opentrons labware names
 │   ├── plate_layout.py    # layout model, dose series, JSON/CSV
 │   ├── dilution_planner.py # intermediate dilutions and ordered transfer list
+│   ├── reservoirs.py      # Opentrons reservoir labware (load names, wells, volumes)
 │   ├── plan_checker.py    # replays the transfers and checks every well
 │   ├── plate_canvas.py    # interactive plate widget
 │   ├── ui_helpers.py      # theme tokens and window helpers
@@ -86,7 +93,7 @@ drug-screen-platform/
 ## Roadmap
 
 - Opentrons Flex protocol generation from the transfer list (Python API, `opentrons.protocol_api`), tested in the Opentrons simulator
-- Randomized / edge-avoiding layouts
+- Randomized layouts
 - PubChem molecular weight lookup for stock preparation
 
 ## License

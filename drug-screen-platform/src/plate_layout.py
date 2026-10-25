@@ -12,7 +12,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
 
-from plate_formats import PLATE_FORMATS, PlateFormat, parse_well, row_label, well_name, well_sort_key
+from plate_formats import (
+    PLATE_FORMATS, PlateFormat, edge_wells, parse_well, row_label, well_name, well_sort_key,
+)
+from reservoirs import DEFAULT_RESERVOIR
 
 LAYOUT_FILE_VERSION = 1
 
@@ -23,7 +26,13 @@ ROLE_TREATMENT = "Treatment"
 ROLE_VEHICLE = "Vehicle control"
 ROLE_POSITIVE = "Positive control"
 ROLE_UNTREATED = "Untreated"
-ROLES = [ROLE_TREATMENT, ROLE_VEHICLE, ROLE_POSITIVE, ROLE_UNTREATED]
+ROLE_EDGE = "Edge fill"
+ROLES = [ROLE_TREATMENT, ROLE_VEHICLE, ROLE_POSITIVE, ROLE_UNTREATED, ROLE_EDGE]
+# Roles that only receive medium: no drug, no solvent.
+MEDIUM_ONLY_ROLES = (ROLE_UNTREATED, ROLE_EDGE)
+
+EDGE_LIQUIDS = ["Medium", "PBS", "Water"]
+DEFAULT_EDGE_LIQUID = "Medium"
 
 MAX_DMSO_PERCENT = 0.5
 
@@ -76,6 +85,8 @@ class WellAssignment:
 
     def label(self) -> str:
         """Short human-readable description."""
+        if not self.drug and self.concentration is None:
+            return self.role
         parts = [self.drug or "—"]
         if self.concentration is not None:
             parts.append(f"{self.concentration:g} {self.unit}")
@@ -131,6 +142,7 @@ class PlateLayout:
         self.assignments: dict[str, WellAssignment] = {}
         self.stocks: dict[str, StockSolution] = {}
         self.pipetting: dict[str, float] = {}
+        self.reservoir = DEFAULT_RESERVOIR
 
     @property
     def plate_format(self) -> PlateFormat:
@@ -228,6 +240,36 @@ class PlateLayout:
                 concentration = float(f"{top_concentration / dilution_factor ** step:.4g}")
                 self.assignments[well] = WellAssignment(role, drug, concentration, unit)
 
+    def edge_wells(self) -> list[str]:
+        """Edge wells of this plate (empty for plates too small to spare the edge)."""
+        return edge_wells(self.plate_format)
+
+    def fill_edge(self, liquid: str = DEFAULT_EDGE_LIQUID, overwrite: bool = False) -> list[str]:
+        """
+        Fill the edge wells with a liquid so they buffer the inner wells.
+
+        Parameters
+        ----------
+        liquid : str, default=DEFAULT_EDGE_LIQUID
+            Fill liquid, e.g. ``"Medium"`` or ``"PBS"``; stored as the
+            well's ``drug``.
+        overwrite : bool, default=False
+            Also replace edge wells that hold drugs or controls. Wells that
+            are already edge fill are always refilled with ``liquid``.
+
+        Returns
+        -------
+        list of str
+            Wells that were filled.
+        """
+        liquid = liquid.strip() or DEFAULT_EDGE_LIQUID
+        filled = [
+            well for well in self.edge_wells()
+            if overwrite or well not in self.assignments or self.assignments[well].role == ROLE_EDGE
+        ]
+        self.assign(filled, WellAssignment(ROLE_EDGE, liquid))
+        return filled
+
     def drugs(self) -> list[str]:
         """Distinct drug names in order of first appearance (row-wise)."""
         seen: list[str] = []
@@ -280,6 +322,7 @@ class PlateLayout:
             },
             "stocks": {drug: asdict(stock) for drug, stock in self.stocks.items()},
             "pipetting": dict(self.pipetting),
+            "reservoir": self.reservoir,
         }
 
     @classmethod
@@ -291,6 +334,7 @@ class PlateLayout:
         for drug, values in data.get("stocks", {}).items():
             layout.stocks[drug] = StockSolution(**values)
         layout.pipetting = dict(data.get("pipetting", {}))
+        layout.reservoir = data.get("reservoir", DEFAULT_RESERVOIR)
         return layout
 
     def save_json(self, path: Path) -> None:

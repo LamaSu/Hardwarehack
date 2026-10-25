@@ -57,6 +57,9 @@ PLATE_FORMATS: dict[str, PlateFormat] = {
 
 DEFAULT_FORMAT = "96-well"
 
+# Smaller plates have too few interior wells to sacrifice the outer ring.
+EDGE_EFFECT_MIN_WELLS = 96
+
 _WELL_PATTERN = re.compile(r"^([A-Z]+)(\d+)$")
 
 
@@ -156,6 +159,37 @@ def parse_well(name: str) -> Tuple[int, int]:
 def well_sort_key(name: str) -> Tuple[int, int]:
     """Sort key ordering wells row-wise (A1, A2, ..., B1, ...)."""
     return parse_well(name)
+
+
+def edge_wells(plate_format: PlateFormat) -> list[str]:
+    """
+    Outer-ring wells that are prone to the edge effect (evaporation, heat).
+
+    Parameters
+    ----------
+    plate_format : PlateFormat
+        Plate format.
+
+    Returns
+    -------
+    list of str
+        Edge wells in row-wise order, or an empty list for plates with fewer
+        than ``EDGE_EFFECT_MIN_WELLS`` wells.
+
+    Examples
+    --------
+    >>> len(edge_wells(PLATE_FORMATS["96-well"]))
+    36
+    """
+    if plate_format.well_count < EDGE_EFFECT_MIN_WELLS:
+        return []
+    last_row, last_column = plate_format.rows - 1, plate_format.columns - 1
+    return [
+        well_name(row, col)
+        for row in range(plate_format.rows)
+        for col in range(plate_format.columns)
+        if row in (0, last_row) or col in (0, last_column)
+    ]
 
 
 def flex_compatibility_note(plate_format: PlateFormat) -> Optional[str]:

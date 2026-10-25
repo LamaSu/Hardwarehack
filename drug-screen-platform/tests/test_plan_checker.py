@@ -9,11 +9,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from dilution_planner import PipettingSettings, plan_dilutions  # noqa: E402
+from dilution_planner import RESERVOIR, PipettingSettings, plan_dilutions  # noqa: E402
 from plan_checker import check_plan  # noqa: E402
 from plate_formats import well_name  # noqa: E402
 from plate_layout import (  # noqa: E402
-    CONCENTRATION_UNITS, ROLE_POSITIVE, ROLE_TREATMENT, ROLE_UNTREATED, ROLE_VEHICLE,
+    CONCENTRATION_UNITS, ROLE_EDGE, ROLE_POSITIVE, ROLE_TREATMENT, ROLE_UNTREATED, ROLE_VEHICLE,
     PlateLayout, StockSolution, WellAssignment, from_nanomolar, to_nanomolar,
 )
 from verify_plan import example_layout  # noqa: E402
@@ -57,7 +57,7 @@ def _random_layout(seed: int) -> tuple[PlateLayout, float, PipettingSettings]:
             chosen, wells = wells[:count], wells[count:]
             layout.assign(chosen, WellAssignment(rng.choice([ROLE_TREATMENT, ROLE_POSITIVE]), drug,
                                                  from_nanomolar(target_nm, unit), unit))
-    for role, drug in ((ROLE_VEHICLE, "DMSO"), (ROLE_UNTREATED, "")):
+    for role, drug in ((ROLE_VEHICLE, "DMSO"), (ROLE_UNTREATED, ""), (ROLE_EDGE, "PBS")):
         chosen, wells = wells[:3], wells[3:]
         layout.assign(chosen, WellAssignment(role, drug))
     return layout, volume, settings
@@ -87,4 +87,51 @@ def test_checker_catches_a_wrong_source():
     plan = plan_dilutions(layout, 100)
     doses = [t for t in plan.transfers if t.phase == "dose" and t.source_labware == "intermediate"]
     doses[0].source_well, doses[1].source_well = doses[1].source_well, doses[0].source_well
+    assert not check_plan(layout, plan, 100).passed
+
+
+def test_edge_fill_comes_from_the_reservoir():
+    layout = example_layout()
+    filled = layout.fill_edge("PBS", overwrite=True)
+    plan = plan_dilutions(layout, 100)
+    report = check_plan(layout, plan, 100)
+    assert report.passed, (report.problems, [w for w in report.wells if not w.ok][:5])
+    edge_checks = [w for w in report.wells if w.well in filled]
+    assert len(edge_checks) == 36 and all(w.expected == "PBS only" for w in edge_checks)
+
+    edge_transfers = [t for t in plan.transfers if t.phase == "edge"]
+    assert sorted(t.dest_well for t in edge_transfers) == sorted(filled)
+    assert all(t.source_labware == RESERVOIR and t.volume_ul == 100 for t in edge_transfers)
+    assert plan.transfers[:36] == edge_transfers
+    wells = {w.liquid: w for w in plan.reservoir_wells}
+    assert wells["Medium"].well == "A1"
+    assert wells["PBS"].used_ul == pytest.approx(3600)
+    assert wells["PBS"].fill_ul == pytest.approx(3600 + PipettingSettings().reservoir_dead_volume_ul)
+
+
+def test_medium_spills_over_into_the_next_reservoir_well():
+    layout = example_layout()
+    layout.reservoir = "nest_12_reservoir_15ml"
+    settings = PipettingSettings(reservoir_dead_volume_ul=14000)  # 1 mL usable per well
+    plan = plan_dilutions(layout, 100, settings)
+    medium_wells = [w for w in plan.reservoir_wells if w.liquid == "Medium"]
+    assert len(medium_wells) > 1
+    assert check_plan(layout, plan, 100, settings).passed
+
+
+def test_full_reservoir_is_reported():
+    layout = example_layout()
+    layout.fill_edge("PBS", overwrite=True)
+    layout.reservoir = "nest_1_reservoir_195ml"
+    plan = plan_dilutions(layout, 100)
+    assert any("Reservoir is full" in w for w in plan.warnings)
+    assert not check_plan(layout, plan, 100).passed
+
+
+def test_checker_catches_edge_fill_from_the_wrong_well():
+    layout = example_layout()
+    layout.fill_edge("PBS", overwrite=True)
+    plan = plan_dilutions(layout, 100)
+    medium_well = next(w.well for w in plan.reservoir_wells if w.liquid == "Medium")
+    next(t for t in plan.transfers if t.phase == "edge").source_well = medium_well
     assert not check_plan(layout, plan, 100).passed

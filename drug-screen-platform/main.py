@@ -28,11 +28,13 @@ from plate_formats import (  # noqa: E402
     DEFAULT_FORMAT, PLATE_FORMATS, flex_compatibility_note, parse_well, well_sort_key,
 )
 from plate_layout import (  # noqa: E402
-    CONCENTRATION_UNITS, ROLE_POSITIVE, ROLE_TREATMENT, ROLE_UNTREATED, ROLE_VEHICLE, ROLES,
+    CONCENTRATION_UNITS, DEFAULT_EDGE_LIQUID, EDGE_LIQUIDS, MEDIUM_ONLY_ROLES, ROLE_EDGE, ROLE_POSITIVE,
+    ROLE_TREATMENT, ROLE_UNTREATED, ROLE_VEHICLE, ROLES,
     PlateLayout, StockSolution, WellAssignment, from_nanomolar, to_nanomolar,
 )
+from reservoirs import DEFAULT_RESERVOIR, RESERVOIR_FORMATS, reservoir_from_display_name  # noqa: E402
 from ui_helpers import (  # noqa: E402
-    ACCENT, ACCENT_HOVER, BG, BORDER, CARD, DRUG_PALETTE, EMPTY_WELL, EMPTY_WELL_OUTLINE,
+    ACCENT, ACCENT_HOVER, BG, BORDER, CARD, DRUG_PALETTE, EDGE_COLOR, EDGE_OUTLINE, EMPTY_WELL, EMPTY_WELL_OUTLINE,
     ERROR, FOOTER_COLOR, MUTED, ROW, ROW_HOVER, SUCCESS, TEXT, UNTREATED_COLOR, UNTREATED_OUTLINE, VEHICLE_COLOR, WARNING,
     CTkToolTip, apply_dark_titlebar, asset_path, blend, center_window, configure_dark_treeview,
 )
@@ -140,12 +142,16 @@ class ScreenDesignerApp:
         self.series_unit_var = tk.StringVar(value="µM")
         self.series_factor_var = tk.StringVar(value="3")
         self.series_direction_var = tk.StringVar(value="Along rows →")
+        self.warn_edge_var = tk.BooleanVar(value=True)
+        self.edge_liquid_var = tk.StringVar(value=DEFAULT_EDGE_LIQUID)
         self.well_volume_var = tk.StringVar(
             value=format_number(self.layout.plate_format.default_working_volume_ul)
         )
         self.min_transfer_var = tk.StringVar()
         self.intermediate_transfer_var = tk.StringVar()
         self.dead_volume_var = tk.StringVar()
+        self.reservoir_dead_volume_var = tk.StringVar()
+        self.reservoir_var = tk.StringVar(value=RESERVOIR_FORMATS[self.layout.reservoir].display_name)
         self._set_pipetting_vars(PipettingSettings.from_dict(self.layout.pipetting))
         self.current_plan: Optional[DilutionPlan] = None
         self.plate_name_var.trace_add("write", self._on_plate_name_changed)
@@ -288,6 +294,7 @@ class ScreenDesignerApp:
         self._build_selection_section(panel)
         self._build_assign_section(panel)
         self._build_series_section(panel)
+        self._build_edge_section(panel)
         self._rebuild_legend()
 
     def _build_selection_section(self, parent) -> None:
@@ -310,7 +317,8 @@ class ScreenDesignerApp:
         self._option_menu(body, self.role_var, ROLES, width=190, command=self._on_role_changed).grid(
             row=0, column=1, columnspan=2, sticky="ew", pady=5)
 
-        self._field_label(body, "Drug", 1, "For vehicle controls, enter the solvent (e.g. DMSO).")
+        self._field_label(body, "Drug", 1, "For vehicle controls, enter the solvent (e.g. DMSO). "
+                                            "Edge fill uses the liquid set under 'Plate edge'.")
         self.drug_combo = ctk.CTkComboBox(
             body, variable=self.drug_var, values=[], height=32, fg_color=ROW, border_color=BORDER,
             button_color=ROW, button_hover_color=ROW_HOVER, text_color=TEXT,
@@ -354,6 +362,28 @@ class ScreenDesignerApp:
         self._button(body, "Apply series to selection", self.apply_dose_series, primary=True, width=200).grid(
             row=4, column=0, columnspan=3, sticky="w", pady=(8, 0))
 
+    def _build_edge_section(self, parent) -> None:
+        body = self._section(parent, "Plate edge", "96-well and up")
+        ctk.CTkLabel(
+            body, text="Outer wells evaporate faster and skew readouts (edge effect). "
+                       "Fill them with medium or buffer and keep drugs and controls on the inner wells.",
+            font=self.small_font, text_color=MUTED, wraplength=PANEL_WIDTH - 40, justify="left", anchor="w",
+        ).pack(fill="x", pady=(0, 6))
+        liquid_row = ctk.CTkFrame(body, fg_color="transparent")
+        liquid_row.pack(fill="x", pady=(0, 6))
+        ctk.CTkLabel(liquid_row, text="Liquid", font=self.body_font, text_color=MUTED).pack(side="left", padx=(0, 10))
+        ctk.CTkComboBox(
+            liquid_row, variable=self.edge_liquid_var, values=EDGE_LIQUIDS, width=150, height=32, fg_color=ROW,
+            border_color=BORDER, button_color=ROW, button_hover_color=ROW_HOVER, text_color=TEXT,
+            dropdown_fg_color=ROW, dropdown_hover_color=ROW_HOVER, font=self.body_font,
+        ).pack(side="left")
+        ctk.CTkCheckBox(
+            body, text="Warn before dosing edge wells", variable=self.warn_edge_var, font=self.body_font,
+            text_color=TEXT, fg_color=ACCENT, hover_color=ACCENT_HOVER, border_color=BORDER,
+            checkbox_width=20, checkbox_height=20,
+        ).pack(anchor="w", pady=(0, 8))
+        self._button(body, "Fill edge", self.fill_edge, width=200).pack(anchor="w")
+
     def _build_worklist_tab(self, tab) -> None:
         tab.grid_columnconfigure(1, weight=1)
         tab.grid_rowconfigure(0, weight=1)
@@ -372,12 +402,22 @@ class ScreenDesignerApp:
              "Volume added from the intermediate plate into each assay well."),
             ("Dead volume", self.dead_volume_var,
              "Extra volume left in each intermediate well so the last aspiration isn't short."),
+            ("Reservoir dead vol.", self.reservoir_dead_volume_var,
+             "Extra volume left in each reservoir well. 2000 µL is a placeholder — check the real "
+             "minimum on the reservoir we use."),
         )
         for row, (label, variable, tooltip) in enumerate(fields):
             self._field_label(pipetting, label, row, tooltip)
             self._entry(pipetting, variable, width=80).grid(row=row, column=1, sticky="w", pady=5)
             ctk.CTkLabel(pipetting, text="µL", font=self.body_font, text_color=MUTED).grid(
                 row=row, column=2, sticky="w", padx=(6, 0))
+        self._field_label(pipetting, "Reservoir", len(fields),
+                          "Holds medium for the intermediate dilutions and the edge-fill liquids, "
+                          "one liquid per well.")
+        self._option_menu(
+            pipetting, self.reservoir_var, [r.display_name for r in RESERVOIR_FORMATS.values()],
+            width=210, command=self._on_reservoir_selected,
+        ).grid(row=len(fields), column=1, columnspan=2, sticky="w", pady=5)
 
         self.stocks_body = self._section(left, "Stock solutions", "stock -> well")
 
@@ -479,6 +519,8 @@ class ScreenDesignerApp:
             return EMPTY_WELL, EMPTY_WELL_OUTLINE, False
         if assignment.role == ROLE_UNTREATED:
             return UNTREATED_COLOR, UNTREATED_OUTLINE, False
+        if assignment.role == ROLE_EDGE:
+            return EDGE_COLOR, EDGE_OUTLINE, False
         if assignment.role == ROLE_VEHICLE:
             return VEHICLE_COLOR, VEHICLE_COLOR, False
 
@@ -527,6 +569,9 @@ class ScreenDesignerApp:
         add_item(1, fixed_row, UNTREATED_COLOR, "Untreated")
         add_item(2, fixed_row, MUTED, "Positive control", ring=True)
         add_item(3, fixed_row, EMPTY_WELL, "Empty")
+        edge_liquids = sorted({a.drug for a in self.layout.assignments.values() if a.role == ROLE_EDGE and a.drug})
+        add_item(0, fixed_row + 1, EDGE_COLOR,
+                 "Edge fill" + (f" ({', '.join(edge_liquids)})" if edge_liquids else ""))
 
     # ------------------------------------------------------------------
     # Event handlers
@@ -555,6 +600,10 @@ class ScreenDesignerApp:
     def _on_role_changed(self, role: str) -> None:
         if role == ROLE_VEHICLE and not self.drug_var.get().strip():
             self.drug_var.set("DMSO")
+
+    def _on_reservoir_selected(self, display_name: str) -> None:
+        self.layout.reservoir = reservoir_from_display_name(display_name).load_name
+        self._mark_dirty()
 
     def _on_plate_name_changed(self, *_args) -> None:
         self.layout.name = self.plate_name_var.get().strip() or "Untitled plate"
@@ -617,6 +666,70 @@ class ScreenDesignerApp:
             return None
         return wells
 
+    def _confirm_edge_wells(self, wells: list[str], role: str) -> Optional[list[str]]:
+        """
+        Ask before putting drug or solvent into edge wells.
+
+        Returns
+        -------
+        list of str or None
+            Wells to fill (possibly without the edge wells), or None to cancel.
+        """
+        if role in MEDIUM_ONLY_ROLES or not self.warn_edge_var.get():
+            return wells
+        edge = set(self.layout.edge_wells())
+        on_edge = [well for well in wells if well in edge]
+        if not on_edge:
+            return wells
+        preview = ", ".join(on_edge[:8]) + (" …" if len(on_edge) > 8 else "")
+        answer = messagebox.askyesnocancel(
+            "Edge wells selected",
+            f"{len(on_edge)} of the {len(wells)} selected wells are on the plate edge:\n{preview}\n\n"
+            "Edge wells evaporate faster and often give skewed readings, so they're usually "
+            "filled with medium instead.\n\n"
+            "Yes — skip the edge wells\nNo — use all selected wells anyway\nCancel — do nothing",
+            icon="warning", parent=self.root,
+        )
+        if answer is None:
+            return None
+        if not answer:
+            return wells
+        inner = [well for well in wells if well not in edge]
+        if not inner:
+            self.flash("All selected wells are on the edge — nothing assigned", WARNING)
+            return None
+        return inner
+
+    def _edge_liquid(self) -> str:
+        return self.edge_liquid_var.get().strip() or DEFAULT_EDGE_LIQUID
+
+    def fill_edge(self) -> None:
+        """Fill the outer ring of the plate with the chosen edge liquid."""
+        edge = self.layout.edge_wells()
+        if not edge:
+            self.flash("Edge fill is meant for 96-well and larger plates", WARNING)
+            return
+        occupied = [well for well in edge
+                    if well in self.layout.assignments and self.layout.get(well).role != ROLE_EDGE]
+        overwrite = False
+        if occupied:
+            preview = ", ".join(occupied[:8]) + (" …" if len(occupied) > 8 else "")
+            answer = messagebox.askyesnocancel(
+                "Edge wells in use",
+                f"{len(occupied)} edge well(s) already have contents:\n{preview}\n\n"
+                f"Yes — replace them with {self._edge_liquid()}\n"
+                "No — fill only the empty edge wells\nCancel — do nothing",
+                icon="warning", parent=self.root,
+            )
+            if answer is None:
+                return
+            overwrite = answer
+        filled = self.layout.fill_edge(self._edge_liquid(), overwrite)
+        if not filled:
+            self.flash("No empty edge wells to fill", MUTED)
+            return
+        self._after_layout_change(refresh_all=True)
+        self.flash(f"Filled {len(filled)} edge well(s) with {self._edge_liquid()}", SUCCESS)
     def assign_selection(self) -> None:
         """Assign the drug/role/concentration from the form to all selected wells."""
         wells = self._selected_wells()
@@ -637,9 +750,14 @@ class ScreenDesignerApp:
                 return
         elif role == ROLE_VEHICLE:
             drug = drug or "DMSO"
+        elif role == ROLE_EDGE:
+            drug = self._edge_liquid()
         else:
             drug = ""
 
+        wells = self._confirm_edge_wells(wells, role)
+        if wells is None:
+            return
         self.layout.assign(wells, WellAssignment(role, drug, concentration, self.unit_var.get()))
         self._after_layout_change(refresh_all=True)
         self.flash(f"Assigned {len(wells)} well(s)", SUCCESS)
@@ -672,6 +790,9 @@ class ScreenDesignerApp:
             return
         role = self.role_var.get() if self.role_var.get() == ROLE_POSITIVE else ROLE_TREATMENT
         direction = "row" if self.series_direction_var.get().startswith("Along") else "column"
+        wells = self._confirm_edge_wells(wells, role)
+        if wells is None:
+            return
         groups: dict[int, int] = {}
         for well in wells:
             row, col = parse_well(well)
@@ -779,6 +900,7 @@ class ScreenDesignerApp:
         self.min_transfer_var.set(format_number(settings.min_transfer_ul))
         self.intermediate_transfer_var.set(format_number(settings.intermediate_transfer_ul))
         self.dead_volume_var.set(format_number(settings.dead_volume_ul))
+        self.reservoir_dead_volume_var.set(format_number(settings.reservoir_dead_volume_ul))
 
     def _read_pipetting(self, well_volume_ul: float) -> Optional[PipettingSettings]:
         values = {}
@@ -791,12 +913,16 @@ class ScreenDesignerApp:
                 self.flash(f"{label}: {error}", ERROR)
                 return None
             values[key] = value
-        dead_text = self.dead_volume_var.get().strip() or "0"
-        is_valid, cleaned, error = validate_decimal_input(dead_text)
-        if not is_valid or float(cleaned) < 0:
-            self.flash(f"Dead volume: {error or 'must be ≥ 0'}", ERROR)
-            return None
-        settings = PipettingSettings(dead_volume_ul=float(cleaned), **values)
+        for label, variable, key in (
+            ("Dead volume", self.dead_volume_var, "dead_volume_ul"),
+            ("Reservoir dead volume", self.reservoir_dead_volume_var, "reservoir_dead_volume_ul"),
+        ):
+            is_valid, cleaned, error = validate_decimal_input(variable.get().strip() or "0")
+            if not is_valid or float(cleaned) < 0:
+                self.flash(f"{label}: {error or 'must be ≥ 0'}", ERROR)
+                return None
+            values[key] = float(cleaned)
+        settings = PipettingSettings(**values)
         problems = settings.validate(well_volume_ul)
         if problems:
             self.flash(problems[0], ERROR)
@@ -868,6 +994,12 @@ class ScreenDesignerApp:
             medium = sum(i.medium_volume_ul for i in plan.intermediates)
             line(f"Intermediate plate: {len(plan.intermediates)} wells ({INTERMEDIATE_LABWARE}), "
                  f"{format_number(medium, 'µl')} µL medium")
+        if plan.reservoir_wells:
+            line(f"Reservoir ({RESERVOIR_FORMATS[plan.reservoir_labware].display_name}), "
+                 f"incl. {format_number(self.layout.pipetting['reservoir_dead_volume_ul'], 'µl')} µL "
+                 "dead volume:")
+            for item in plan.reservoir_wells:
+                line(f"   {item.well}: {format_number(item.fill_ul / 1000)} mL {item.liquid}")
         line(f"{len(plan.transfers)} transfers in total. Add dead volume to source tubes.", muted=True)
 
         # Independent check: replay every transfer and compare each well with the layout.
@@ -1007,6 +1139,12 @@ class ScreenDesignerApp:
         self.format_selector.set(layout.format_name.split("-")[0])
         self.well_volume_var.set(format_number(layout.plate_format.default_working_volume_ul))
         self._set_pipetting_vars(PipettingSettings.from_dict(layout.pipetting))
+        reservoir = RESERVOIR_FORMATS.get(layout.reservoir)
+        if reservoir is None:
+            self.flash(f"Unknown reservoir {layout.reservoir} in file — using the default", WARNING)
+            layout.reservoir = DEFAULT_RESERVOIR
+            reservoir = RESERVOIR_FORMATS[layout.reservoir]
+        self.reservoir_var.set(reservoir.display_name)
         self.canvas.set_plate_format(layout.plate_format)
         self._after_layout_change()
         if self.tabs.get() == "Stocks & worklist":

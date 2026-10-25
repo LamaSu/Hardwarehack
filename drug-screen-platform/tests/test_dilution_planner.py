@@ -9,7 +9,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from dilution_planner import (  # noqa: E402
-    ASSAY, INTERMEDIATE, MEDIUM, STOCK, PipettingSettings, export_transfers_csv, plan_dilutions,
+    ASSAY, INTERMEDIATE, MEDIUM, RESERVOIR, STOCK, PipettingSettings, export_transfers_csv, plan_dilutions,
 )
 from plate_formats import well_name  # noqa: E402
 from plate_layout import ROLE_VEHICLE, PlateLayout, StockSolution, WellAssignment  # noqa: E402
@@ -87,14 +87,15 @@ def test_transfer_order_and_phases():
     layout = _series_layout()
     plan = plan_dilutions(layout, 100)
     phases = [t.phase for t in plan.transfers]
-    assert phases == sorted(phases, key=lambda p: 0 if p == "prepare" else 1)
-    assert plan.transfers[0].source_labware == MEDIUM
+    assert phases == sorted(phases, key=["edge", "prepare", "dose"].index)
+    assert plan.transfers[0].source_labware == RESERVOIR
+    assert plan.transfers[0].liquid == MEDIUM
     assert plan.transfers[-1].dest_labware == ASSAY
     made = set()
     for t in plan.transfers:
         if t.source_labware == INTERMEDIATE:
             assert t.source_well in made
-        if t.dest_labware == INTERMEDIATE and t.source_labware != MEDIUM:
+        if t.dest_labware == INTERMEDIATE and t.source_labware != RESERVOIR:
             made.add(t.dest_well)
 
 
