@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { MIN_DRAW_UL, total, WELL_CAPACITY_UL } from "./apothecary";
-import { TEMPLATES, templateDrafts } from "./templates";
+import { DEFAULT_TEMPLATE_ID, TEMPLATES, templateDrafts } from "./templates";
 
 describe("order templates", () => {
+  it("default to the Prancing Pony tasting", () => {
+    expect(TEMPLATES.find((t) => t.id === DEFAULT_TEMPLATE_ID)?.name).toBe("Prancing Pony tasting");
+  });
+
   it("have unique ids and names", () => {
     expect(new Set(TEMPLATES.map((t) => t.id)).size).toBe(TEMPLATES.length);
     expect(TEMPLATES.length).toBeGreaterThanOrEqual(3);

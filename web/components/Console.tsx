@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { orderable, withDefaultNames, type ConsoleState, type PlanResult, type Recipe, type Trough } from "@/lib/apothecary";
 import { api } from "@/lib/api";
-import { TEMPLATES, templateDrafts } from "@/lib/templates";
+import { DEFAULT_TEMPLATE_ID, TEMPLATES, templateDrafts } from "@/lib/templates";
 import OrderPanel from "./OrderPanel";
 import PlateView from "./PlateView";
 import RecipeEditor from "./RecipeEditor";
@@ -25,13 +25,13 @@ const draftsKey = (plate: string) => `athelas.drafts.${plate}`;
 const templateKey = (plate: string) => `athelas.template.${plate}`;
 // Which template the plate's order came from, and the drafts it produced (to tell if they were edited).
 type Loaded = { id: string; snapshot: string } | null;
-// A plate opened for the first time starts with the first template.
+// A plate opened for the first time starts with the default template (the Prancing Pony tasting).
 const initialDrafts = (plate: string): Record<number, Recipe> =>
-  store.has(draftsKey(plate)) ? store.get(draftsKey(plate), {}) : templateDrafts(TEMPLATES[0].id);
+  store.has(draftsKey(plate)) ? store.get(draftsKey(plate), {}) : templateDrafts(DEFAULT_TEMPLATE_ID);
 const initialLoaded = (plate: string): Loaded =>
   store.has(draftsKey(plate))
     ? store.get<Loaded>(templateKey(plate), null)
-    : { id: TEMPLATES[0].id, snapshot: JSON.stringify(templateDrafts(TEMPLATES[0].id)) };
+    : { id: DEFAULT_TEMPLATE_ID, snapshot: JSON.stringify(templateDrafts(DEFAULT_TEMPLATE_ID)) };
 
 export default function Console() {
   // Rendered only in the browser (see ClientConsole), so saved drafts can be read up front.

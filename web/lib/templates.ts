@@ -8,6 +8,9 @@ import type { Recipe } from "./apothecary";
 
 export interface Template { id: string; name: string; recipes: Recipe[] }
 
+/** Template a plate starts with the first time it's opened. */
+export const DEFAULT_TEMPLATE_ID = "pony";
+
 const r = (column: number, name: string, ...parts: [number, number][]): Recipe =>
   ({ column, name, ingredients: parts.map(([trough, volume_ul]) => ({ trough, volume_ul })) });
 
