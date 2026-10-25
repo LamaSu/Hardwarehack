@@ -11,36 +11,139 @@ snapshot of the deck before and after.
   generator, Flex client, web API and the `plate` / `flex` command-line tools
 - [`web/`](web/): Next.js plate editor, worklist and robot control
 
-## Run it (macOS or Windows)
+## Requirements
 
-Needs [uv](https://docs.astral.sh/uv/) and Node.js 20+.
+- [uv](https://docs.astral.sh/uv/) (installs Python 3.12 for you; the Opentrons
+  package does not import on 3.11)
+- Node.js 20 or newer
+- For the robot: your laptop on the same network as the Flex, **with any VPN
+  turned off** (a VPN can block local devices)
+
+## Spin up the UI
+
+The dashboard is two local servers: a Python API and the Next.js web app.
+Open two terminals in the repo root (the same commands work in macOS Terminal
+and Windows PowerShell).
 
 ```bash
 # terminal 1: API on 127.0.0.1:8000
 cd drug-screen-platform
-uv sync
+uv sync                          # first time, and after pulling new dependencies
 uv run python scripts/serve.py
 
-# terminal 2: UI on http://127.0.0.1:3000
+# terminal 2: web UI on 127.0.0.1:3000
 cd web
-npm install
+npm install                      # first time, and after pulling new dependencies
 npm run dev
 ```
+
+Then open <http://127.0.0.1:3000>. Keep both terminals running; Ctrl-C stops
+each server.
+
+To connect the robot, open the **Robot** tab, enter the robot's IP address and
+press **Connect** (tick **Mock robot** to rehearse without hardware). To have
+the API connect on start instead:
+
+```bash
+FLEX_HOST=<robot-ip> uv run python scripts/serve.py          # macOS / Linux
+$env:FLEX_HOST="<robot-ip>"; uv run python scripts/serve.py  # Windows PowerShell
+```
+
+The tabs: **Plate layout** (click or drag wells, assign drugs, dose series),
+**Stocks & worklist** (stock solutions, pipetting plan, simulation check) and
+**Robot** (generate and simulate the protocol, before/after pictures, run,
+pause, stop).
 
 Both servers listen on 127.0.0.1 only, so nothing is reachable from the LAN.
 If you also run a host firewall, block inbound connections on 3000 and 8000
 and allow outbound TCP 31950 to the robot.
 
-## Robot from the terminal
+**Troubleshooting**
+
+- *"Backend not reachable"* in the browser: terminal 1 isn't running, or it
+  stopped with an error.
+- *"Can't reach the Flex at ..."*: check the IP on the robot's touchscreen
+  (Settings, Network), put the laptop on the same network, turn the VPN off.
+- *Port already in use*: an old server is still running; close its terminal.
+- `npm` says it can't find `package.json`: you are not in the `web` folder.
+
+## Command line
+
+All commands run from `drug-screen-platform`. The robot commands need the
+robot's address: pass `--host <robot-ip>` each time, or set `FLEX_HOST` once
+(as above). `--mock` uses a pretend robot.
 
 ```bash
 cd drug-screen-platform
-uv run flex health --host <robot-ip>
-uv run flex demo plate.json --host <robot-ip>   # check, protocol, simulate, before, run, after
-uv run flex demo plate.json --mock              # rehearsal without a robot
+uv run flex health --host <robot-ip>     # first thing to run at the robot
 ```
 
-Before the first real run, open the generated `runs/<plate>/protocol.py` and
-check the deck constants at the top (pipettes, tip racks, stock rack, slots)
-against the robot. Runs started over HTTP use no Labware Position Check
-offsets.
+### Plates and protocols (`plate`, no robot needed)
+
+| Command | What it does |
+|---|---|
+| `uv run plate check [plate.json]` | Replay the pipetting plan and check every well (no file: built-in example plate) |
+| `uv run plate plan plate.json [--csv transfers.csv]` | Print the ordered transfer list, or export it |
+| `uv run plate protocol plate.json` | Generate `runs/<plate>/protocol.py` and print the stock tube map |
+| `uv run plate simulate runs/<plate>/protocol.py` | Run a protocol through the Opentrons simulator |
+
+`plate.json` is a layout saved from the web UI (it lands in
+`runs/<plate>/layout.json`).
+
+### The robot (`flex`)
+
+| Command | What it does |
+|---|---|
+| `uv run flex health` | Robot name, model and software version |
+| `uv run flex snapshot --plate NAME --tag before` | Deck camera picture into `runs/<plate>/before.jpg` |
+| `uv run flex calibrate` | Measure the real height of the PCR plate on its riser (see below) |
+| `uv run flex fill --plate NAME --volume 40` | 8-channel medium fill into the next free plate column |
+| `uv run flex run runs/<plate>/protocol.py --plate NAME` | Upload a protocol, start it and follow it to the end |
+| `uv run flex status RUN_ID` / `pause RUN_ID` / `stop RUN_ID` | Control a run |
+| `uv run flex demo plate.json` | Check, generate, simulate, before picture, run, after picture |
+
+Every command has `--help`. `flex fill` simulates its protocol and asks before
+starting (`--yes` skips the question); `flex demo` simulates before running;
+`flex run` starts the file you give it straight away, so simulate it first with
+`plate simulate`.
+
+### Medium fill on the Studio45 deck
+
+Deck: 1000 µL tips in A1, 50 µL filter tips in A2, 12-trough reservoir in B1
+(medium in trough 1), stock plate in B2, Armadillo 96-well PCR plate seated on a
+96 deep-well plate (the riser) in B3, trash in A3. Take the lids off the tip
+boxes.
+
+1. **Calibrate the plate height** (once, and again whenever the plate or riser
+   is reseated). The riser makes the default height wrong; without this the
+   tips are driven into the plate, and `flex fill` refuses to run.
+
+   ```bash
+   uv run flex calibrate --host <robot-ip>
+   ```
+
+   The robot picks up tips from column 12 of the 50 µL rack and stops 80 mm
+   above where it expects the plate. At the `jog:` prompt type `d 10`, `d 1`,
+   `d 0.1` (down), `u 1` (up), `x 0.5` / `y 0.5` (sideways) and press Enter,
+   until the tip ends are level with the well tops. Type `ok`, then `y` to
+   save; `q` aborts. The tips go back to the rack and the robot homes either
+   way. Expect a z offset of about 35-41 mm. Run this in a normal terminal,
+   not through `!` in Claude Code (the prompt can't read input there).
+
+2. **Fill.** Each fill takes the next tip column and the next free plate
+   column, and logs them in `runs/<plate>/fills.json`:
+
+   ```bash
+   uv run flex fill --plate "Plate 1" --host <robot-ip> --volume 40
+   uv run flex fill --plate "Plate 1" --host <robot-ip> --volume 40 --position 1 --tip-column 2   # choose explicitly
+   ```
+
+   The 50 µL tips limit a fill to 5-50 µL per well. After 12 fills the tip
+   rack is used up; the command tells you when to replace it.
+
+### Where files go
+
+Everything a run produces is in `drug-screen-platform/runs/` (not in git):
+layouts, protocols, transfer lists, camera pictures, `fills.json`, and the
+plate calibration in `labware_offsets.json`. Calibrations are per laptop:
+each laptop that runs fills needs its own `flex calibrate`.
