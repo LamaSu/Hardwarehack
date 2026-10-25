@@ -22,15 +22,23 @@ const store = {
   has(key: string): boolean { try { return localStorage.getItem(key) !== null; } catch { return false; } },
 };
 const draftsKey = (plate: string) => `athelas.drafts.${plate}`;
+const templateKey = (plate: string) => `athelas.template.${plate}`;
+// Which template the plate's order came from, and the drafts it produced (to tell if they were edited).
+type Loaded = { id: string; snapshot: string } | null;
 // A plate opened for the first time starts with the first template.
 const initialDrafts = (plate: string): Record<number, Recipe> =>
   store.has(draftsKey(plate)) ? store.get(draftsKey(plate), {}) : templateDrafts(TEMPLATES[0].id);
+const initialLoaded = (plate: string): Loaded =>
+  store.has(draftsKey(plate))
+    ? store.get<Loaded>(templateKey(plate), null)
+    : { id: TEMPLATES[0].id, snapshot: JSON.stringify(templateDrafts(TEMPLATES[0].id)) };
 
 export default function Console() {
   // Rendered only in the browser (see ClientConsole), so saved drafts can be read up front.
   const [plate, setPlate] = useState(() => store.get("athelas.plate", "Batch 1"));
   const [state, setState] = useState<ConsoleState | null>(null);
   const [drafts, setDrafts] = useState<Drafts>(() => initialDrafts(store.get("athelas.plate", "Batch 1")));
+  const [loaded, setLoaded] = useState<Loaded>(() => initialLoaded(store.get("athelas.plate", "Batch 1")));
   const [selected, setSelected] = useState(1);
   const [plan, setPlan] = useState<(PlanResult & { key: string }) | null>(null);
   const [brewing, setBrewing] = useState(false);
@@ -71,7 +79,14 @@ export default function Console() {
   const currentPlan = recipes.length > 0 && plan?.key === orderKey ? plan : null;
   const planning = recipes.length > 0 && currentPlan === null;
 
-  const editDrafts = (next: Drafts) => { setDrafts(next); store.set(draftsKey(plate), next); };
+  const editDrafts = (next: Drafts) => {
+    setDrafts(next);
+    // A fresh plate's default template lives only in memory until its drafts are first saved.
+    if (!store.has(draftsKey(plate))) store.set(templateKey(plate), loaded);
+    store.set(draftsKey(plate), next);
+  };
+  const rememberTemplate = (next: Loaded) => { setLoaded(next); store.set(templateKey(plate), next); };
+  const edited = loaded !== null && JSON.stringify(drafts) !== loaded.snapshot;
   const hasDraftWork = Object.values(drafts).some((r) => r.ingredients.length > 0 && !state?.columns[String(r.column)]);
   const loadTemplate = (id: string) => {
     const template = TEMPLATES.find((t) => t.id === id);
@@ -79,12 +94,15 @@ export default function Console() {
     if (hasDraftWork && !window.confirm(`Replace the recipes you've entered with "${template.name}"?`)) return;
     const free = Array.from({ length: 12 }, (_, i) => i + 1).filter((c) => !state?.columns[String(c)]);
     if (free.length === 0) { setMessage({ text: "Every column of this plate is brewed. Start a new plate first.", bad: true }); return; }
-    editDrafts(templateDrafts(id, free));
+    const next = templateDrafts(id, free);
+    editDrafts(next);
+    rememberTemplate({ id, snapshot: JSON.stringify(next) });
     setSelected(free[0]);
   };
   const clearOrder = () => {
     if (hasDraftWork && !window.confirm("Clear every recipe in this order?")) return;
     editDrafts({});
+    rememberTemplate(null);
   };
   const recipeFor = (column: number): Recipe => drafts[column] ?? { column, name: "", ingredients: [] };
 
@@ -122,6 +140,8 @@ export default function Console() {
       const next = { ...drafts };
       columns.forEach((c) => delete next[c]);
       editDrafts(next);
+      // Brewed columns leave the draft; that isn't an edit of the template.
+      if (loaded) rememberTemplate({ ...loaded, snapshot: JSON.stringify(next) });
       setJustBrewed(columns);
       setTimeout(() => setJustBrewed([]), 900 + columns.length * 140);
       setRun({ id: result.run_id, status: "running", errors: [] });
@@ -139,6 +159,7 @@ export default function Console() {
     setPlate(name);
     store.set("athelas.plate", name);
     setDrafts(initialDrafts(name));
+    setLoaded(initialLoaded(name));
   };
 
   return (
@@ -153,11 +174,15 @@ export default function Console() {
         </div>
         <label className="flex items-center gap-2 text-sm text-ink-soft">
           Template
-          {/* Always shows the prompt, so picking the same template again reloads it. */}
-          <select className="field w-52" value="" aria-label="Load a template"
+          {/* Shows the template this plate's order came from; "(edited)" once the recipes change. */}
+          <select className="field w-60" value={loaded?.id ?? ""} aria-label="Template"
                   onChange={(e) => loadTemplate(e.target.value)}>
             <option value="" disabled>Load a template…</option>
-            {TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.recipes.length} columns)</option>)}
+            {TEMPLATES.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}{loaded?.id === t.id && edited ? " (edited)" : ` (${t.recipes.length} columns)`}
+              </option>
+            ))}
           </select>
         </label>
         <button className="btn" onClick={clearOrder} disabled={!hasDraftWork}>Clear order</button>
