@@ -89,7 +89,7 @@ Done when: the demo layout plans at 5 µL with no warnings, every transfer is at
 ### G2. Transfer list to Flex protocol
 Goal: turn the ordered transfer list into a Flex Python protocol that simulates cleanly.
 
-Status (16:45 PDT): a first generator exists on branch `ebrinz` (`src/protocol_generator.py`). It embeds the transfers and assumes two 1-channel pipettes. It simulates cleanly as written, but fails with the 8-channel (out of tips, then collision errors in SINGLE-nozzle mode). The 8-channel column-batch rewrite is the work: see [docs/opentrons-integration.md](docs/opentrons-integration.md).
+Status (16:45 PDT): a first generator exists on branch `ebrinz` (`src/protocol_generator.py`). It embeds the transfers and assumes two 1-channel pipettes. It simulates cleanly as written, but fails with the 8-channel (out of tips, then collision errors in SINGLE-nozzle mode). The 8-channel column-batch rewrite is the work: see [docs/opentrons-integration.md](docs/opentrons-integration.md). A ready-to-paste prompt for the coding agent is in [docs/agent-prompts/8channel-generator.md](docs/agent-prompts/8channel-generator.md).
 
 First decision (30 minutes): (a) one fixed, tested protocol that reads the transfer list as a CSV runtime parameter (API 2.20 or newer), or (b) a generator that writes a self-contained protocol with the transfers embedded. Decided in practice: (b), as built on `ebrinz`'s branch. (a) stays an option if embedding gets awkward.
 
