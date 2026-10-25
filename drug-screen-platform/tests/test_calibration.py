@@ -11,7 +11,7 @@ from cli.flex import app as flex_app
 from flex_client import FlexClient
 
 runner = CliRunner()
-PLATE_URI = "opentrons/biorad_384_wellplate_50ul/4"
+PLATE_URI = "opentrons/armadillo_96_wellplate_200ul_pcr_full_skirt/3"
 
 
 @pytest.fixture

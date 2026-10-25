@@ -23,7 +23,7 @@ import json
 from flex_client import FlexClient, MockFlexClient, client_from_env
 import labware_offsets
 from medium_fill import (
-    PCR_PLATE, PCR_PLATE_URI, POSITIONS, TIP_COLUMNS, TIPS_50_FILTER, TIPS_50_FILTER_VERSION,
+    PCR_PLATE, PCR_PLATE_URI, PCR_PLATE_VERSION, POSITIONS, TIP_COLUMNS, TIPS_50_FILTER, TIPS_50_FILTER_VERSION,
     protocol_source, well_for_position,
 )
 from plate_layout import PlateLayout
@@ -129,15 +129,15 @@ def stop(run_id: str, host: Host = None, port: Port = None, mock: Mock = False) 
 @friendly_errors
 def fill(plate: PlateName,
          volume: Annotated[float, typer.Option(help="Medium per well in µL (5-50)")] = 50.0,
-         position: Annotated[Optional[int], typer.Option(help="384 position 1-48 (default: next free)")] = None,
+         position: Annotated[Optional[int], typer.Option(help="Plate column 1-12 (default: next free)")] = None,
          tip_column: Annotated[Optional[int], typer.Option(help="Filter tip column 1-12 (default: next unused)")] = None,
          yes: Annotated[bool, typer.Option("--yes", help="Don't ask before starting the run")] = False,
-         uncalibrated: Annotated[bool, typer.Option("--uncalibrated", help="Run without a Z calibration of the 384 plate")] = False,
+         uncalibrated: Annotated[bool, typer.Option("--uncalibrated", help="Run without a Z calibration of the PCR plate")] = False,
          host: Host = None, port: Port = None, mock: Mock = False) -> None:
-    """8-channel medium fill into the next free position of the 384-well plate."""
+    """8-channel medium fill into the next free column of the PCR plate."""
     calibration = labware_offsets.find(PCR_PLATE_URI, PCR_PLATE[1])
     if calibration is None and not uncalibrated:
-        raise ValueError(f"The 384-well plate in {PCR_PLATE[1]} has no Z calibration (a riser makes the default "
+        raise ValueError(f"The PCR plate in {PCR_PLATE[1]} has no Z calibration (a riser makes the default "
                          f"height wrong). Run `uv run flex calibrate` first, or pass --uncalibrated.")
     if calibration:
         typer.echo(f"Using {PCR_PLATE[1]} calibration: z {calibration['vector']['z']:+.1f} mm "
@@ -152,7 +152,7 @@ def fill(plate: PlateName,
     if position is None:
         position = next((p for p in range(1, POSITIONS + 1) if p not in used), None)
         if position is None:
-            raise ValueError(f"The 384-well plate for {plate} is full ({POSITIONS} positions used).")
+            raise ValueError(f"The PCR plate for {plate} is full ({POSITIONS} positions used).")
     if tip_column is None:
         tip_column = len(fills) % TIP_COLUMNS + 1
     well = well_for_position(position)
@@ -200,7 +200,7 @@ def _parse_jog(text: str):
 def calibrate(
     slot: Annotated[str, typer.Option(help="Deck slot of the labware")] = PCR_PLATE[1],
     load_name: Annotated[str, typer.Option(help="Labware load name")] = PCR_PLATE[0],
-    version: Annotated[int, typer.Option(help="Labware definition version")] = 4,
+    version: Annotated[int, typer.Option(help="Labware definition version")] = PCR_PLATE_VERSION,
     well: Annotated[str, typer.Option(help="Well to align the tips with")] = "A1",
     start_height: Annotated[float, typer.Option(help="Start this many mm above the default top (> riser height)")] = 80.0,
     tip_column: Annotated[int, typer.Option(help="50 µL filter tip column to borrow (returned afterwards)")] = 12,

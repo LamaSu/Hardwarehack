@@ -31,8 +31,8 @@ uv run plate protocol plate.json        # generate runs/<plate>/protocol.py
 uv run plate simulate runs/<plate>/protocol.py
 uv run flex health --host <robot-ip>    # or set FLEX_HOST; --mock for a pretend robot
 uv run flex demo plate.json --host <robot-ip>   # check → protocol → simulate → before → run → after
-uv run flex calibrate --host <robot-ip>         # jog-measure the 384 plate height in B3 (riser!)
-uv run flex fill --plate "Plate 1" --host <robot-ip>   # 8-channel medium fill, next free 384 position
+uv run flex calibrate --host <robot-ip>         # jog-measure the PCR plate height in B3 (riser!)
+uv run flex fill --plate "Plate 1" --host <robot-ip>   # 8-channel medium fill, next free plate column
 
 cd web
 npm install
@@ -41,7 +41,7 @@ npm test && npm run lint && npm run build
 ```
 
 Studio45 deck (medium fill): 1000 µL tips A1, 50 µL filter tips A2, 12-trough reservoir B1,
-stock plate B2, 384-well PCR plate on a riser B3, trash A3. The riser makes the plate's default
+stock plate B2, Armadillo 96-well PCR plate seated on a 96 deep-well plate (riser) in B3, trash A3. The riser makes the plate's default
 height wrong: runs carry the offsets from `flex calibrate` (`runs/labware_offsets.json`), and
 `flex fill` refuses to run without one.
 
