@@ -75,6 +75,9 @@ def test_calibrate_jog_saves_offset_and_cleans_up(runs, monkeypatch):
     assert saved["vector"] == {"x": 0.5, "y": 0.0, "z": 66.0}
     kinds = [c[0] for c in commands]
     assert kinds[:5] == ["home", "loadPipette", "loadLabware", "loadLabware", "pickUpTip"]
+    # Maintenance commands use the robot's internal name (what /instruments reports), not the
+    # protocol API name flex_8channel_1000: the robot answers 422 to that.
+    assert commands[1][1] == {"pipetteName": "p1000_multi_flex", "mount": "left"}
     move = next(p for k, p in commands if k == "moveToWell")
     assert move["wellLocation"] == {"origin": "top", "offset": {"x": 0, "y": 0, "z": 80.0}}
     jogs = [(p["axis"], p["distance"]) for k, p in commands if k == "moveRelative"]

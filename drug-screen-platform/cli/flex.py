@@ -176,6 +176,9 @@ def fill(plate: PlateName,
 
 
 MAX_JOG_MM = 20.0
+# Maintenance runs take the robot's internal pipette name (as GET /instruments reports it),
+# not the protocol API load name flex_8channel_1000.
+ENGINE_PIPETTE_NAME = "p1000_multi_flex"
 JOG_HELP = "d N = down N mm, u N = up, x N / y N = sideways, ok = save, q = abort"
 JOG_AXES = {"d": ("z", -1.0), "u": ("z", 1.0), "x": ("x", 1.0), "y": ("y", 1.0)}
 
@@ -214,7 +217,7 @@ def calibrate(
     saved = False
     try:
         command("home")
-        pipette = command("loadPipette", pipetteName="flex_8channel_1000", mount="left")["pipetteId"]
+        pipette = command("loadPipette", pipetteName=ENGINE_PIPETTE_NAME, mount="left")["pipetteId"]
         tips = command("loadLabware", location={"slotName": TIPS_50_FILTER[1]}, loadName=TIPS_50_FILTER[0],
                        namespace="opentrons", version=TIPS_50_FILTER_VERSION)["labwareId"]
         target = command("loadLabware", location={"slotName": slot}, loadName=load_name,
