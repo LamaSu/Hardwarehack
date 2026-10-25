@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from api.apothecary import router as apothecary_router
 from api.routes import router
 from api.schemas import RobotConfig
 from flex_client import DEFAULT_PORT, FlexError
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(ValueError, error(422))
     app.add_exception_handler(FileNotFoundError, error(404))
     app.include_router(router)
+    app.include_router(apothecary_router)
     return app
 
 
