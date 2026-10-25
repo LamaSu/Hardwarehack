@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { orderable, withDefaultNames, type ConsoleState, type PlanResult, type Recipe, type Trough } from "@/lib/apothecary";
 import { api } from "@/lib/api";
-import { DEFAULT_TEMPLATE_ID, TEMPLATES, templateDrafts } from "@/lib/templates";
+import { DEFAULT_TEMPLATE_ID, draftsSignature, inferTemplate, TEMPLATES, templateDrafts } from "@/lib/templates";
 import OrderPanel from "./OrderPanel";
 import PlateView from "./PlateView";
 import RecipeEditor from "./RecipeEditor";
@@ -28,10 +28,15 @@ type Loaded = { id: string; snapshot: string } | null;
 // A plate opened for the first time starts with the default template (the Prancing Pony tasting).
 const initialDrafts = (plate: string): Record<number, Recipe> =>
   store.has(draftsKey(plate)) ? store.get(draftsKey(plate), {}) : templateDrafts(DEFAULT_TEMPLATE_ID);
-const initialLoaded = (plate: string): Loaded =>
-  store.has(draftsKey(plate))
-    ? store.get<Loaded>(templateKey(plate), null)
-    : { id: DEFAULT_TEMPLATE_ID, snapshot: JSON.stringify(templateDrafts(DEFAULT_TEMPLATE_ID)) };
+const initialLoaded = (plate: string): Loaded => {
+  if (!store.has(draftsKey(plate))) {
+    return { id: DEFAULT_TEMPLATE_ID, snapshot: draftsSignature(templateDrafts(DEFAULT_TEMPLATE_ID)) };
+  }
+  const saved = store.get<Loaded>(templateKey(plate), null);
+  // Snapshots are signatures ("[...]"); a missing or older record is recognised from the recipes.
+  if (saved && saved.snapshot.startsWith("[")) return saved;
+  return store.has(templateKey(plate)) && saved === null ? null : inferTemplate(store.get(draftsKey(plate), {}));
+};
 
 export default function Console() {
   // Rendered only in the browser (see ClientConsole), so saved drafts can be read up front.
@@ -86,7 +91,7 @@ export default function Console() {
     store.set(draftsKey(plate), next);
   };
   const rememberTemplate = (next: Loaded) => { setLoaded(next); store.set(templateKey(plate), next); };
-  const edited = loaded !== null && JSON.stringify(drafts) !== loaded.snapshot;
+  const edited = loaded !== null && draftsSignature(drafts) !== loaded.snapshot;
   const hasDraftWork = Object.values(drafts).some((r) => r.ingredients.length > 0 && !state?.columns[String(r.column)]);
   const loadTemplate = (id: string) => {
     const template = TEMPLATES.find((t) => t.id === id);
@@ -96,7 +101,7 @@ export default function Console() {
     if (free.length === 0) { setMessage({ text: "Every column of this plate is brewed. Start a new plate first.", bad: true }); return; }
     const next = templateDrafts(id, free);
     editDrafts(next);
-    rememberTemplate({ id, snapshot: JSON.stringify(next) });
+    rememberTemplate({ id, snapshot: draftsSignature(next) });
     setSelected(free[0]);
   };
   const clearOrder = () => {
@@ -141,7 +146,7 @@ export default function Console() {
       columns.forEach((c) => delete next[c]);
       editDrafts(next);
       // Brewed columns leave the draft; that isn't an edit of the template.
-      if (loaded) rememberTemplate({ ...loaded, snapshot: JSON.stringify(next) });
+      if (loaded) rememberTemplate({ ...loaded, snapshot: draftsSignature(next) });
       setJustBrewed(columns);
       setTimeout(() => setJustBrewed([]), 900 + columns.length * 140);
       setRun({ id: result.run_id, status: "running", errors: [] });

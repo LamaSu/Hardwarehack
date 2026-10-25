@@ -48,3 +48,39 @@ describe("order templates", () => {
     expect(() => templateDrafts("nope")).toThrow();
   });
 });
+
+describe("recognising a plate's template from its recipes", () => {
+  it("finds an unedited template wherever its columns ended up", async () => {
+    const { inferTemplate, draftsSignature } = await import("./templates");
+    const drafts = templateDrafts("pony");
+    expect(inferTemplate(drafts)).toEqual({ id: "pony", snapshot: draftsSignature(drafts) });
+    const moved = templateDrafts("healing", [3, 7, 8]);
+    expect(inferTemplate(moved)?.id).toBe("healing");
+    expect(inferTemplate(moved)?.snapshot).toBe(draftsSignature(moved));
+  });
+
+  it("marks it edited when volumes changed or recipes were removed", async () => {
+    const { inferTemplate, draftsSignature } = await import("./templates");
+    const drafts = templateDrafts("pony");
+    drafts[1].ingredients[0].volume_ul = 45;
+    expect(inferTemplate(drafts)?.id).toBe("pony");
+    expect(inferTemplate(drafts)?.snapshot).not.toBe(draftsSignature(drafts));
+    const fewer = templateDrafts("pony");
+    delete fewer[6];
+    expect(inferTemplate(fewer)?.snapshot).not.toBe(draftsSignature(fewer));
+  });
+
+  it("finds nothing for hand-made or empty orders", async () => {
+    const { inferTemplate } = await import("./templates");
+    expect(inferTemplate({ 1: { column: 1, name: "My own brew", ingredients: [{ trough: 1, volume_ul: 10 }] } })).toBeNull();
+    expect(inferTemplate({})).toBeNull();
+  });
+
+  it("signature ignores key order but not contents", async () => {
+    const { draftsSignature } = await import("./templates");
+    const a = { 1: { column: 1, name: "X", ingredients: [{ trough: 1, volume_ul: 10 }] } };
+    const b = { 1: { ingredients: [{ volume_ul: 10, trough: 1 }], name: "X", column: 1 } };
+    expect(draftsSignature(a)).toBe(draftsSignature(b));
+    expect(draftsSignature(a)).not.toBe(draftsSignature({ 1: { ...a[1], name: "Y" } }));
+  });
+});

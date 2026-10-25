@@ -48,3 +48,31 @@ export function templateDrafts(id: string, freeColumns?: number[]): Record<numbe
     template.recipes.slice(0, columns.length).map((recipe, i) => [columns[i], { ...structuredClone(recipe), column: columns[i] }]),
   );
 }
+
+/** Contents of a draft order, independent of key order: used to tell whether a template was edited. */
+export function draftsSignature(drafts: Record<number, Recipe>): string {
+  return JSON.stringify(
+    Object.values(drafts)
+      .sort((a, b) => a.column - b.column)
+      .map((r) => [r.column, r.name, r.ingredients.map((i) => [i.trough, i.volume_ul])]),
+  );
+}
+
+/**
+ * The template a draft order came from, recognised by its recipe names (for plates saved
+ * before the template was recorded). ``snapshot`` is what the order would be unedited.
+ */
+export function inferTemplate(drafts: Record<number, Recipe>): { id: string; snapshot: string } | null {
+  const recipes = Object.values(drafts).filter((r) => r.ingredients.length > 0);
+  if (recipes.length === 0) return null;
+  for (const template of TEMPLATES) {
+    const byName = new Map(template.recipes.map((t) => [t.name, t]));
+    if (!recipes.every((r) => byName.has(r.name))) continue;
+    // Expected order: every template recipe, in the columns the drafts use (in order).
+    const columns = [...recipes].sort((a, b) => a.column - b.column).map((r) => r.column);
+    const placed = templateDrafts(template.id, columns);
+    const complete = recipes.length === template.recipes.length;
+    return { id: template.id, snapshot: draftsSignature(complete ? placed : templateDrafts(template.id)) };
+  }
+  return null;
+}
