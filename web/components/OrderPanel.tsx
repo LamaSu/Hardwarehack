@@ -86,7 +86,7 @@ export default function OrderPanel(p: Props) {
         </div>
       )}
 
-      <div className="flex gap-2 border-t border-mithril-soft pt-2">
+      <div className="flex flex-wrap gap-x-2 border-t border-mithril-soft pt-2">
         <button className="btn btn-quiet" onClick={p.onTipsRefilled}>Tip racks refilled</button>
         <button className="btn btn-quiet" onClick={p.onNewPlate}>New plate</button>
       </div>

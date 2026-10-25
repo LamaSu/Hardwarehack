@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { orderable, withDefaultNames, type ConsoleState, type PlanResult, type Recipe, type Trough } from "@/lib/apothecary";
 import { api } from "@/lib/api";
+import { TEMPLATES, templateDrafts } from "@/lib/templates";
 import OrderPanel from "./OrderPanel";
 import PlateView from "./PlateView";
 import RecipeEditor from "./RecipeEditor";
@@ -18,13 +19,18 @@ const store = {
     try { const v = localStorage.getItem(key); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; }
   },
   set(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ } },
+  has(key: string): boolean { try { return localStorage.getItem(key) !== null; } catch { return false; } },
 };
+const draftsKey = (plate: string) => `athelas.drafts.${plate}`;
+// A plate opened for the first time starts with the first template.
+const initialDrafts = (plate: string): Record<number, Recipe> =>
+  store.has(draftsKey(plate)) ? store.get(draftsKey(plate), {}) : templateDrafts(TEMPLATES[0].id);
 
 export default function Console() {
   // Rendered only in the browser (see ClientConsole), so saved drafts can be read up front.
   const [plate, setPlate] = useState(() => store.get("athelas.plate", "Batch 1"));
   const [state, setState] = useState<ConsoleState | null>(null);
-  const [drafts, setDrafts] = useState<Drafts>(() => store.get(`athelas.drafts.${store.get("athelas.plate", "Batch 1")}`, {}));
+  const [drafts, setDrafts] = useState<Drafts>(() => initialDrafts(store.get("athelas.plate", "Batch 1")));
   const [selected, setSelected] = useState(1);
   const [plan, setPlan] = useState<(PlanResult & { key: string }) | null>(null);
   const [brewing, setBrewing] = useState(false);
@@ -65,7 +71,21 @@ export default function Console() {
   const currentPlan = recipes.length > 0 && plan?.key === orderKey ? plan : null;
   const planning = recipes.length > 0 && currentPlan === null;
 
-  const editDrafts = (next: Drafts) => { setDrafts(next); store.set(`athelas.drafts.${plate}`, next); };
+  const editDrafts = (next: Drafts) => { setDrafts(next); store.set(draftsKey(plate), next); };
+  const hasDraftWork = Object.values(drafts).some((r) => r.ingredients.length > 0 && !state?.columns[String(r.column)]);
+  const loadTemplate = (id: string) => {
+    const template = TEMPLATES.find((t) => t.id === id);
+    if (!template) return;
+    if (hasDraftWork && !window.confirm(`Replace the recipes you've entered with "${template.name}"?`)) return;
+    const free = Array.from({ length: 12 }, (_, i) => i + 1).filter((c) => !state?.columns[String(c)]);
+    if (free.length === 0) { setMessage({ text: "Every column of this plate is brewed. Start a new plate first.", bad: true }); return; }
+    editDrafts(templateDrafts(id, free));
+    setSelected(free[0]);
+  };
+  const clearOrder = () => {
+    if (hasDraftWork && !window.confirm("Clear every recipe in this order?")) return;
+    editDrafts({});
+  };
   const recipeFor = (column: number): Recipe => drafts[column] ?? { column, name: "", ingredients: [] };
 
   const editTrough = (trough: Trough) => {
@@ -118,7 +138,7 @@ export default function Console() {
   const changePlate = (name: string) => {
     setPlate(name);
     store.set("athelas.plate", name);
-    setDrafts(store.get(`athelas.drafts.${name}`, {}));
+    setDrafts(initialDrafts(name));
   };
 
   return (
@@ -131,6 +151,16 @@ export default function Console() {
           <div className="font-[family-name:var(--font-display)] text-xl leading-none">Athelas Apothecary</div>
           <div className="text-xs text-ink-soft">Concoctions on demand, mixed by an Opentrons Flex</div>
         </div>
+        <label className="flex items-center gap-2 text-sm text-ink-soft">
+          Template
+          {/* Always shows the prompt, so picking the same template again reloads it. */}
+          <select className="field w-52" value="" aria-label="Load a template"
+                  onChange={(e) => loadTemplate(e.target.value)}>
+            <option value="" disabled>Load a template…</option>
+            {TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.recipes.length} columns)</option>)}
+          </select>
+        </label>
+        <button className="btn" onClick={clearOrder} disabled={!hasDraftWork}>Clear order</button>
         <label className="flex items-center gap-2 text-sm text-ink-soft">
           Plate
           <input className="field w-36" value={plate} maxLength={80} aria-label="Plate name"
