@@ -16,7 +16,9 @@ an end-to-end drug screening platform driving an Opentrons Flex.
   - `src/run_store.py` — `runs/<plate-slug>/`: layout, transfers, protocol, snapshots, run info (git-ignored)
   - `api/` — FastAPI app for the web UI; `cli/` — `plate` and `flex` commands
   - `tests/` — pytest (protocols are checked with the real Opentrons simulator)
-- `web/` — Next.js (App Router, TypeScript, Tailwind) plate editor, worklist and robot tab
+- `drug-screen-platform/src/concoction.py` — per-column recipes from the 12-trough reservoir: rules, tip budget, protocol
+- `drug-screen-platform/src/apothecary_state.py`, `api/apothecary.py` — console state (`runs/apothecary.json`) and routes
+- `web/` — Next.js (App Router, TypeScript, Tailwind): the Athelas Apothecary concoction console
 - `docs/superpowers/` — design spec and implementation plan for the web/API/CLI rewrite
 
 ## Commands

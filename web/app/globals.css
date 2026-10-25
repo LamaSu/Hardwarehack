@@ -1,33 +1,48 @@
 @import "tailwindcss";
 
+/* Athelas Apothecary: cool paper, green-slate ink, leaf green for actions,
+   mithril silver for structure, lamplight amber only while brewing. */
 @theme {
-  --color-bg: #1b1d21;
-  --color-panel: #24272c;
-  --color-field: #2e3238;
-  --color-line: #3a3f47;
-  --color-text: #e6e8eb;
-  --color-muted: #959ba5;
-  --color-accent: #5bb4f0;
-  --color-ok: #6fd36f;
-  --color-warn: #f0b45b;
-  --color-bad: #f07a6f;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --color-paper: #f4f6f5;
+  --color-surface: #ffffff;
+  --color-ink: #1b2a28;
+  --color-ink-soft: #55635f;
+  --color-leaf: #2e7a57;
+  --color-leaf-deep: #235f44;
+  --color-leaf-wash: #e3efe8;
+  --color-mithril: #c7d2d6;
+  --color-mithril-soft: #e4eaec;
+  --color-amber: #c9962e;
+  --color-alert: #b4473a;
+  --color-alert-wash: #f6e4e1;
+  --font-display: var(--font-marcellus), "Times New Roman", serif;
+  --font-sans: var(--font-plex), system-ui, sans-serif;
 }
 
-html, body { background: var(--color-bg); color: var(--color-text); }
-body { font-family: var(--font-mono); font-size: 13px; }
+html, body { background: var(--color-paper); color: var(--color-ink); }
+body { font-family: var(--font-sans); font-size: 15px; line-height: 1.5; font-feature-settings: "tnum" 1; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; }
 
-.btn { @apply rounded px-3 py-1.5 bg-field text-text hover:bg-line disabled:opacity-40 disabled:cursor-not-allowed; }
-.btn-primary { @apply bg-accent text-[#0d1b26] font-semibold hover:brightness-110; }
-.field { @apply rounded bg-field px-2 py-1 text-text outline-none focus:ring-1 focus:ring-accent; }
-.panel { @apply rounded-md bg-panel p-4; }
-.panel-title { @apply mb-3 flex items-baseline justify-between text-text; }
-.panel-title small { @apply text-muted; }
-.seg { @apply flex rounded bg-field p-0.5; }
-.seg button { @apply rounded px-2.5 py-1 text-text; }
-.seg button[aria-pressed="true"] { @apply bg-accent text-[#0d1b26]; }
-table.grid-table { @apply w-full border-collapse; }
-.grid-table th { @apply sticky top-0 bg-panel px-2 py-1 text-left font-normal text-muted; }
-.grid-table td { @apply whitespace-nowrap px-2 py-0.5; }
-.grid-table tr.muted td { @apply text-muted; }
-.grid-table tr.warn td { @apply text-warn; }
+:focus-visible { outline: 2px solid var(--color-leaf); outline-offset: 2px; }
+
+.btn { @apply inline-flex items-center justify-center gap-2 rounded-md border border-mithril bg-surface px-3.5 py-2 text-sm text-ink transition-colors hover:border-ink-soft disabled:cursor-not-allowed disabled:opacity-45; }
+.btn-primary { @apply border-leaf bg-leaf text-white hover:border-leaf-deep hover:bg-leaf-deep; }
+.btn-quiet { @apply border-transparent bg-transparent px-2 text-ink-soft hover:border-transparent hover:text-ink; }
+.field { @apply w-full rounded-md border border-mithril bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-leaf; }
+.section-title { @apply font-[family-name:var(--font-display)] text-xl text-ink; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* The one orchestrated moment: freshly brewed columns light up in order. */
+@keyframes brew-flash {
+  0% { filter: brightness(1); }
+  35% { filter: brightness(1.45) drop-shadow(0 0 6px var(--color-amber)); }
+  100% { filter: brightness(1); }
+}
+.brew-flash { animation: brew-flash 900ms ease-out both; }
+
+/* Plate columns: no browser ring on click; a leaf ring on the column band for keyboard focus. */
+.plate-column:focus { outline: none; }
+.plate-column:focus-visible .column-band { stroke: var(--color-leaf); stroke-width: 3; }

@@ -125,3 +125,16 @@ def test_run_id_validated(client):
     client.put("/robot/config", json={"host": "", "port": 31950, "mock": True})
     assert client.get("/robot/runs/..%2Fhealth").status_code in (404, 405, 422)
     assert client.get("/robot/runs/a.b").status_code == 422
+
+
+def test_extra_ui_origin_only_on_loopback(monkeypatch):
+    import importlib
+
+    import api.app as app_module
+
+    monkeypatch.setenv("UI_ORIGIN", "http://127.0.0.1:3001")
+    assert "http://127.0.0.1:3001" in importlib.reload(app_module).LOCAL_ORIGINS
+    monkeypatch.setenv("UI_ORIGIN", "http://evil.com:3001")
+    assert "http://evil.com:3001" not in importlib.reload(app_module).LOCAL_ORIGINS
+    monkeypatch.delenv("UI_ORIGIN")
+    importlib.reload(app_module)

@@ -49,10 +49,22 @@ FLEX_HOST=<robot-ip> uv run python scripts/serve.py          # macOS / Linux
 $env:FLEX_HOST="<robot-ip>"; uv run python scripts/serve.py  # Windows PowerShell
 ```
 
-The tabs: **Plate layout** (click or drag wells, assign drugs, dose series),
-**Stocks & worklist** (stock solutions, pipetting plan, simulation check) and
-**Robot** (generate and simulate the protocol, before/after pictures, run,
-pause, stop).
+The web UI is the **Athelas Apothecary** console, a concoction-on-demand screen
+for the Studio45 deck:
+
+- **Reservoir:** name the 12 troughs in B1, pick their colours and set how many
+  mL each holds.
+- **Plate:** pick a column of the Armadillo plate in B3. Every well in the
+  column (A-H) gets the same recipe, because the 8-channel fills a whole column.
+- **Recipe:** add ingredients from the troughs, at least 5 µL each and at most
+  200 µL per well in total. Each draw uses a fresh column of tips (50 µL filter
+  tips up to 50 µL, 1000 µL tips above), and the last tip mixes the well.
+- **Order:** the console checks the order and runs it through the Opentrons
+  simulator as you edit; **Brew** sends it to the robot (or the mock) and keeps
+  track of trough volumes, tip columns and brewed columns.
+
+The older drug-screen plate designer is still available from the command line
+(`plate` and `flex demo`).
 
 Both servers listen on 127.0.0.1 only, so nothing is reachable from the LAN.
 If you also run a host firewall, block inbound connections on 3000 and 8000

@@ -3,6 +3,7 @@ FastAPI app for the web UI. Loopback only: start it with ``scripts/serve.py``.
 """
 
 import os
+import re
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,10 @@ from flex_client import DEFAULT_PORT, FlexError
 from protocol_generator import ProtocolError
 
 LOCAL_ORIGINS = ["http://127.0.0.1:3000", "http://localhost:3000"]
+# A second dev UI on another loopback port, e.g. UI_ORIGIN=http://127.0.0.1:3001
+_extra = os.environ.get("UI_ORIGIN", "")
+if re.fullmatch(r"http://(127\.0\.0\.1|localhost):\d{2,5}", _extra):
+    LOCAL_ORIGINS.append(_extra)
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 
 

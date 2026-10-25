@@ -1,5 +1,5 @@
-import App from "@/components/App";
+import ClientConsole from "@/components/ClientConsole";
 
 export default function Page() {
-  return <App />;
+  return <ClientConsole />;
 }
